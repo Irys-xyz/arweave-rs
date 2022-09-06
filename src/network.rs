@@ -16,7 +16,6 @@ pub struct NetworkInfo {
 
 #[pretend]
 trait NetworkInfoFetch {
-    // Network
     #[request(method = "GET", path = "/info")]
     async fn network_info(&self) -> Result<JsonResult<NetworkInfo, ()>>;
 
