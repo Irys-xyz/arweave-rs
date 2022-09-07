@@ -1,5 +1,5 @@
+use pretend::{pretend, resolver::UrlResolver, JsonResult, Pretend, Url};
 use pretend_reqwest::Client as HttpClient;
-use pretend::{pretend, JsonResult, Url, Pretend, resolver::UrlResolver};
 use serde::Deserialize;
 
 use crate::error::ArweaveError;
@@ -36,7 +36,9 @@ impl NetworkInfoClient {
     }
 
     pub async fn network_info(&self) -> Result<NetworkInfo, ArweaveError> {
-        let response = self.0.network_info()
+        let response = self
+            .0
+            .network_info()
             .await
             .expect("Error getting network info");
         match response {
@@ -46,9 +48,7 @@ impl NetworkInfoClient {
     }
 
     pub async fn peer_info(&self) -> Result<Vec<String>, ArweaveError> {
-        let response = self.0.peer_info()
-            .await
-            .expect("Error getting peer info");
+        let response = self.0.peer_info().await.expect("Error getting peer info");
         match response {
             JsonResult::Ok(n) => Ok(n),
             JsonResult::Err(err) => Err(err),
@@ -56,12 +56,11 @@ impl NetworkInfoClient {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
+    use crate::network::NetworkInfoClient;
     use pretend::Url;
     use tokio_test::block_on;
-    use crate::network::NetworkInfoClient;
 
     #[test]
     fn test_network_info() {

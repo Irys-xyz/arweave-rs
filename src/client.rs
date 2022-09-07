@@ -1,4 +1,4 @@
-use pretend::{Pretend, resolver::UrlResolver, Url};
+use pretend::{resolver::UrlResolver, Pretend, Url};
 use pretend_reqwest::Client as HttpClient;
 
 pub struct Client(Pretend<HttpClient, UrlResolver>);
