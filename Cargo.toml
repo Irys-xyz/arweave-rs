@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 async-trait = "0.1.57"
+jsonwebkey = { version = "0.3.4", features = [ "pkcs-convert" ] }
 pretend = "0.3.0"
 pretend-reqwest = "0.3.0"
 serde = { version = "1.0.144", features = ["derive"]}
