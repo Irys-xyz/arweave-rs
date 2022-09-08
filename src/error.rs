@@ -3,8 +3,14 @@ use thiserror::Error;
 
 #[derive(Debug, Error, Deserialize)]
 pub enum Error {
+    #[error("Invalid tag encoding.")]
+    InvalidTagEncoding,
+
     #[error("Error getting network info: {0}")]
     NetworkInfoError(String),
+
+    #[error("No bytes left.")]
+    NoBytesLeft,
 
     #[error("Crypto error: {0}")]
     CryptoError(String),

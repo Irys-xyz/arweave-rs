@@ -77,28 +77,12 @@ mod tests {
     use pretend::Url;
     use tokio_test::block_on;
 
-    use crate::transaction::get::{
-        Transaction, TransactionConfirmedData, TransactionInfoClient, TransactionStatusResponse,
+    use crate::{
+        crypto::base64::Base64,
+        transaction::get::{
+            Transaction, TransactionConfirmedData, TransactionInfoClient, TransactionStatusResponse,
+        },
     };
-
-    impl Default for Transaction {
-        fn default() -> Self {
-            Self {
-                format: 2,
-                id: "id".to_string(),
-                last_tx: "last_tx".to_string(),
-                owner: "owner".to_string(),
-                tags: vec![],
-                target: "target".to_string(),
-                quantity: "quantity".to_string(),
-                data_root: "data_root".to_string(),
-                data_size: "data_size".to_string(),
-                data: vec![],
-                reward: "reward".to_string(),
-                signature: "signature".to_string(),
-            }
-        }
-    }
 
     #[test]
     fn test_price() {
@@ -123,7 +107,11 @@ mod tests {
     #[test]
     fn test_get() {
         let id = "id";
-        let tx_info_mock = Transaction::default();
+        let base64_id = Base64::from_utf8_str(id).unwrap();
+        let tx_info_mock = Transaction {
+            id: base64_id.clone(),
+            ..Transaction::default()
+        };
 
         let server = MockServer::start();
         let server_url = server.url("");
@@ -139,7 +127,7 @@ mod tests {
         let tx_info = block_on(client.get(id)).unwrap();
 
         mock.assert();
-        assert_eq!(tx_info.id, id);
+        assert_eq!(tx_info.id, base64_id);
     }
 
     #[test]
