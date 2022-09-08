@@ -60,6 +60,7 @@ impl Signer for ArweaveSigner {
     fn get_sig_length(&self) -> u16 {
         SIG_LENGTH
     }
+
     fn get_pub_length(&self) -> u16 {
         PUB_LENGTH
     }

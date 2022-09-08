@@ -4,27 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::ArweaveError;
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Tag {
-    pub name: String,
-    pub value: String,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct TransactionData {
-    pub format: usize,
-    pub id: String,
-    pub last_tx: String,
-    pub owner: String,
-    pub tags: Vec<Tag>,
-    pub target: String,
-    pub quantity: String,
-    pub data: Vec<u8>,
-    pub reward: String,
-    pub signature: String,
-    pub data_size: String,
-    pub data_root: String,
-}
+use super::Transaction;
 
 #[allow(unused)]
 #[derive(Serialize, Deserialize, Debug)]
@@ -46,7 +26,7 @@ trait TransactionInfoFetch {
     async fn tx_get_price(&self, byte_size: &str) -> pretend::Result<String>;
 
     #[request(method = "GET", path = "/tx/{id}")]
-    async fn tx_get(&self, id: &str) -> pretend::Result<JsonResult<TransactionData, ArweaveError>>;
+    async fn tx_get(&self, id: &str) -> pretend::Result<JsonResult<Transaction, ArweaveError>>;
 
     #[request(method = "GET", path = "/tx/{id}/status")]
     async fn tx_status(
@@ -71,7 +51,7 @@ impl TransactionInfoClient {
             .map_err(|err| ArweaveError::TransactionInfoError(err.to_string()))
     }
 
-    pub async fn get(&self, id: &str) -> Result<TransactionData, ArweaveError> {
+    pub async fn get(&self, id: &str) -> Result<Transaction, ArweaveError> {
         self.0
             .tx_get(id)
             .await
@@ -97,9 +77,11 @@ mod tests {
     use pretend::Url;
     use tokio_test::block_on;
 
-    use crate::transaction::get::{
-        Tag, TransactionConfirmedData, TransactionData, TransactionInfoClient,
-        TransactionStatusResponse,
+    use crate::transaction::{
+        get::{
+            Transaction, TransactionConfirmedData, TransactionInfoClient, TransactionStatusResponse,
+        },
+        Tag,
     };
 
     #[test]
@@ -125,7 +107,7 @@ mod tests {
     #[test]
     fn test_get() {
         let id = "arweave_tx_id";
-        let tx_info_mock = TransactionData {
+        let tx_info_mock = Transaction {
             format: 2,
             id: id.to_string(),
             last_tx: "last_tx".to_string(),

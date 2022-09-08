@@ -13,6 +13,7 @@ jsonwebkey = { version = "0.3.4", features = [ "pkcs-convert" ] }
 pretend = "0.3.0"
 pretend-reqwest = "0.3.0"
 rand = "0.8.5"
+ring = "0.16.20"
 rsa = "0.6.1"
 serde = { version = "1.0.144", features = ["derive"]}
 serde_json = { version = "1.0.85" }
