@@ -6,6 +6,9 @@ pub enum ArweaveError {
     #[error("Error getting network info: {0}")]
     NetworkInfoError(String),
 
+    #[error("Crypto error: {0}")]
+    CryptoError(String),
+
     #[error("Error getting transaction info: {0}")]
     TransactionInfoError(String),
 
