@@ -1,7 +1,7 @@
 use pretend::{pretend, resolver::UrlResolver, Pretend, Url};
 use pretend_reqwest::Client as HttpClient;
 
-use crate::error::ArweaveError;
+use crate::error::Error;
 
 #[pretend]
 trait TransactionInfoFetch {
@@ -21,18 +21,18 @@ impl WalletInfoClient {
         Self(pretend)
     }
 
-    pub async fn balance(&self, address: &str) -> Result<String, ArweaveError> {
+    pub async fn balance(&self, address: &str) -> Result<String, Error> {
         self.0
             .wallet_balance(address)
             .await
-            .map_err(|op| ArweaveError::WalletError(op.to_string()))
+            .map_err(|op| Error::WalletError(op.to_string()))
     }
 
-    pub async fn last_tx_id(&self, address: &str) -> Result<String, ArweaveError> {
+    pub async fn last_tx_id(&self, address: &str) -> Result<String, Error> {
         self.0
             .wallet_last_tx_id(address)
             .await
-            .map_err(|op| ArweaveError::WalletError(op.to_string()))
+            .map_err(|op| Error::WalletError(op.to_string()))
     }
 }
 

@@ -4,12 +4,12 @@ use rand::thread_rng;
 use rsa::{pkcs8::DecodePrivateKey, PaddingScheme, PublicKeyParts, RsaPrivateKey};
 use sha2::Digest;
 
-use crate::error::ArweaveError;
+use crate::error::Error;
 
 use super::ArweaveSigner;
 
 pub trait Signer {
-    fn sign(&self, message: Bytes) -> Result<Bytes, ArweaveError>;
+    fn sign(&self, message: Bytes) -> Result<Bytes, Error>;
     fn get_sig_length(&self) -> u16;
     fn get_pub_length(&self) -> u16;
     fn pub_key(&self) -> Bytes;
@@ -33,7 +33,7 @@ const SIG_LENGTH: u16 = 512;
 const PUB_LENGTH: u16 = 512;
 
 impl Signer for ArweaveSigner {
-    fn sign(&self, message: Bytes) -> Result<Bytes, ArweaveError> {
+    fn sign(&self, message: Bytes) -> Result<Bytes, Error> {
         let mut hasher = sha2::Sha256::new();
         hasher.update(&message);
         let hashed = hasher.finalize();
@@ -48,7 +48,7 @@ impl Signer for ArweaveSigner {
         let signature = self
             .priv_key
             .sign(padding, &hashed)
-            .map_err(|e| ArweaveError::CryptoError(e.to_string()))?;
+            .map_err(|e| Error::CryptoError(e.to_string()))?;
 
         Ok(signature.into())
     }

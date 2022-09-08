@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::error::ArweaveError;
+use crate::error::Error;
 
 pub mod create;
 pub mod get;
@@ -32,10 +32,10 @@ impl FromStr for Base64 {
 }
 
 impl Base64 {
-    pub fn from_utf8_str(str: &str) -> Result<Self, ArweaveError> {
+    pub fn from_utf8_str(str: &str) -> Result<Self, Error> {
         Ok(Self(str.as_bytes().to_vec()))
     }
-    pub fn to_utf8_string(&self) -> Result<String, ArweaveError> {
+    pub fn to_utf8_string(&self) -> Result<String, Error> {
         Ok(String::from_utf8(self.0.clone()).expect("Could not convert from utf8"))
     }
 }

@@ -1,7 +1,7 @@
 use ring::digest::{Context, SHA256, SHA384};
 use serde::{Deserialize, Serialize};
 
-use crate::error::ArweaveError;
+use crate::error::Error;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum DeepHashItem {
@@ -18,7 +18,7 @@ impl DeepHashItem {
     }
 }
 
-pub fn hash_sha256(message: &[u8]) -> Result<[u8; 32], ArweaveError> {
+pub fn hash_sha256(message: &[u8]) -> Result<[u8; 32], Error> {
     let mut context = Context::new(&SHA256);
     context.update(message);
     let mut result: [u8; 32] = [0; 32];
@@ -26,7 +26,7 @@ pub fn hash_sha256(message: &[u8]) -> Result<[u8; 32], ArweaveError> {
     Ok(result)
 }
 
-fn hash_sha384(message: &[u8]) -> Result<[u8; 48], ArweaveError> {
+fn hash_sha384(message: &[u8]) -> Result<[u8; 48], Error> {
     let mut context = Context::new(&SHA384);
     context.update(message);
     let mut result: [u8; 48] = [0; 48];
@@ -34,7 +34,7 @@ fn hash_sha384(message: &[u8]) -> Result<[u8; 48], ArweaveError> {
     Ok(result)
 }
 
-pub fn hash_all_sha256(messages: Vec<&[u8]>) -> Result<[u8; 32], ArweaveError> {
+pub fn hash_all_sha256(messages: Vec<&[u8]>) -> Result<[u8; 32], Error> {
     let hash: Vec<u8> = messages
         .into_iter()
         .map(|m| hash_sha256(m).unwrap())
@@ -45,7 +45,7 @@ pub fn hash_all_sha256(messages: Vec<&[u8]>) -> Result<[u8; 32], ArweaveError> {
     Ok(hash)
 }
 
-fn hash_all_sha384(messages: Vec<&[u8]>) -> Result<[u8; 48], ArweaveError> {
+fn hash_all_sha384(messages: Vec<&[u8]>) -> Result<[u8; 48], Error> {
     let hash: Vec<u8> = messages
         .into_iter()
         .map(|m| hash_sha384(m).unwrap())
@@ -56,13 +56,13 @@ fn hash_all_sha384(messages: Vec<&[u8]>) -> Result<[u8; 48], ArweaveError> {
     Ok(hash)
 }
 
-fn concat_u8_48(left: [u8; 48], right: [u8; 48]) -> Result<[u8; 96], ArweaveError> {
+fn concat_u8_48(left: [u8; 48], right: [u8; 48]) -> Result<[u8; 96], Error> {
     let mut iter = left.into_iter().chain(right);
     let result = [(); 96].map(|_| iter.next().unwrap());
     Ok(result)
 }
 
-pub fn deep_hash(deep_hash_item: DeepHashItem) -> Result<[u8; 48], ArweaveError> {
+pub fn deep_hash(deep_hash_item: DeepHashItem) -> Result<[u8; 48], Error> {
     let hash = match deep_hash_item {
         DeepHashItem::Blob(blob) => {
             let blob_tag = format!("blob{}", blob.len());

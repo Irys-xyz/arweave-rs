@@ -2,7 +2,7 @@ use pretend::{pretend, resolver::UrlResolver, JsonResult, Pretend, Url};
 use pretend_reqwest::Client as HttpClient;
 use serde::{Deserialize, Serialize};
 
-use crate::error::ArweaveError;
+use crate::error::Error;
 
 use super::Transaction;
 
@@ -26,13 +26,13 @@ trait TransactionInfoFetch {
     async fn tx_get_price(&self, byte_size: &str) -> pretend::Result<String>;
 
     #[request(method = "GET", path = "/tx/{id}")]
-    async fn tx_get(&self, id: &str) -> pretend::Result<JsonResult<Transaction, ArweaveError>>;
+    async fn tx_get(&self, id: &str) -> pretend::Result<JsonResult<Transaction, Error>>;
 
     #[request(method = "GET", path = "/tx/{id}/status")]
     async fn tx_status(
         &self,
         id: &str,
-    ) -> pretend::Result<JsonResult<TransactionStatusResponse, ArweaveError>>;
+    ) -> pretend::Result<JsonResult<TransactionStatusResponse, Error>>;
 }
 
 pub struct TransactionInfoClient(Pretend<HttpClient, UrlResolver>);
@@ -44,14 +44,14 @@ impl TransactionInfoClient {
         Self(pretend)
     }
 
-    pub async fn get_price(&self, byte_size: &str) -> Result<String, ArweaveError> {
+    pub async fn get_price(&self, byte_size: &str) -> Result<String, Error> {
         self.0
             .tx_get_price(byte_size)
             .await
-            .map_err(|err| ArweaveError::TransactionInfoError(err.to_string()))
+            .map_err(|err| Error::TransactionInfoError(err.to_string()))
     }
 
-    pub async fn get(&self, id: &str) -> Result<Transaction, ArweaveError> {
+    pub async fn get(&self, id: &str) -> Result<Transaction, Error> {
         self.0
             .tx_get(id)
             .await
@@ -59,10 +59,10 @@ impl TransactionInfoClient {
                 JsonResult::Ok(op) => op,
                 JsonResult::Err(err) => panic!("Error parsing info {}", err),
             })
-            .map_err(|op| ArweaveError::TransactionInfoError(op.to_string()))
+            .map_err(|op| Error::TransactionInfoError(op.to_string()))
     }
 
-    pub async fn get_status(&self, id: &str) -> Result<TransactionStatusResponse, ArweaveError> {
+    pub async fn get_status(&self, id: &str) -> Result<TransactionStatusResponse, Error> {
         let response = self.0.tx_status(id).await.expect("Error getting tx status");
         match response {
             JsonResult::Ok(n) => Ok(n),

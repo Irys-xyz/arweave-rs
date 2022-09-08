@@ -2,7 +2,7 @@ use pretend::{pretend, resolver::UrlResolver, JsonResult, Pretend, Url};
 use pretend_reqwest::Client as HttpClient;
 use serde::Deserialize;
 
-use crate::error::ArweaveError;
+use crate::error::Error;
 
 #[derive(Deserialize, Debug)]
 pub struct NetworkInfo {
@@ -20,10 +20,10 @@ pub struct NetworkInfo {
 #[pretend]
 trait NetworkInfoFetch {
     #[request(method = "GET", path = "/info")]
-    async fn network_info(&self) -> pretend::Result<JsonResult<NetworkInfo, ArweaveError>>;
+    async fn network_info(&self) -> pretend::Result<JsonResult<NetworkInfo, Error>>;
 
     #[request(method = "GET", path = "/peers")]
-    async fn peer_info(&self) -> pretend::Result<JsonResult<Vec<String>, ArweaveError>>;
+    async fn peer_info(&self) -> pretend::Result<JsonResult<Vec<String>, Error>>;
 }
 
 pub struct NetworkInfoClient(Pretend<HttpClient, UrlResolver>);
@@ -35,7 +35,7 @@ impl NetworkInfoClient {
         Self(pretend)
     }
 
-    pub async fn network_info(&self) -> Result<NetworkInfo, ArweaveError> {
+    pub async fn network_info(&self) -> Result<NetworkInfo, Error> {
         let response = self
             .0
             .network_info()
@@ -47,7 +47,7 @@ impl NetworkInfoClient {
         }
     }
 
-    pub async fn peer_info(&self) -> Result<Vec<String>, ArweaveError> {
+    pub async fn peer_info(&self) -> Result<Vec<String>, Error> {
         let response = self.0.peer_info().await.expect("Error getting peer info");
         match response {
             JsonResult::Ok(n) => Ok(n),

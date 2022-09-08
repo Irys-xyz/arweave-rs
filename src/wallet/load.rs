@@ -2,14 +2,14 @@ use std::fs;
 
 use jsonwebkey::JsonWebKey;
 
-use crate::error::ArweaveError;
+use crate::error::Error;
 
-pub fn load_from_file(path: &str) -> Result<JsonWebKey, ArweaveError> {
+pub fn load_from_file(path: &str) -> Result<JsonWebKey, Error> {
     let jwt_str =
         fs::read_to_string(path).unwrap_or_else(|_| panic!("Unable to read file {}", path));
     jwt_str
         .parse::<JsonWebKey>()
-        .map_err(|err| ArweaveError::WalletError(err.to_string()))
+        .map_err(|err| Error::WalletError(err.to_string()))
 }
 
 mod tests {

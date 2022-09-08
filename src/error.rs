@@ -2,7 +2,7 @@ use serde::Deserialize;
 use thiserror::Error;
 
 #[derive(Debug, Error, Deserialize)]
-pub enum ArweaveError {
+pub enum Error {
     #[error("Error getting network info: {0}")]
     NetworkInfoError(String),
 

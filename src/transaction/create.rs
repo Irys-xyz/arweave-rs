@@ -1,4 +1,4 @@
-use crate::{crypto::hash::DeepHashItem, error::ArweaveError};
+use crate::{crypto::hash::DeepHashItem, error::Error};
 
 use super::{Base64, Tag, Transaction};
 
@@ -13,7 +13,7 @@ impl Transaction {
         todo!()
     }
 
-    pub fn to_deep_hash_item(&self) -> Result<DeepHashItem, ArweaveError> {
+    pub fn to_deep_hash_item(&self) -> Result<DeepHashItem, Error> {
         todo!()
     }
 }
