@@ -12,6 +12,7 @@ async-stream = "0.3.2"
 async-trait = "0.1.57"
 avro-rs = "0.13.0"
 base64 = "0.13.0"
+borsh = "0.9.3"
 bytes = "1.1.0"
 data-encoding = "2.3.2"
 futures = "0.3.24"
@@ -20,12 +21,13 @@ lazy_static = "1.4.0"
 pretend = "0.3.0"
 pretend-reqwest = "0.3.0"
 rand = "0.8.5"
-ring = "0.16.20"
+ring = {version = "0.16.20", features = [ "std" ] }
 rsa = "0.6.1"
 serde = { version = "1.0.144", features = ["derive"]}
 serde_json = { version = "1.0.85" }
 sha2 = "0.10.5"
 thiserror = "1.0.34"
+tokio = { version = "1.21.1", features = ["fs"]}
 
 [dev-dependencies]
 tokio-test = "0.4.2"

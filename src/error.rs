@@ -3,6 +3,12 @@ use thiserror::Error;
 
 #[derive(Debug, Error, Deserialize)]
 pub enum Error {
+    #[error("Invalid proof")]
+    InvalidProof,
+
+    #[error("Slice error")]
+    SliceError,
+
     #[error("Invalid tag encoding.")]
     InvalidTagEncoding,
 
