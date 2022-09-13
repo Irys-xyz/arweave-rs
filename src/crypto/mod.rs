@@ -6,6 +6,6 @@ pub mod merkle;
 pub mod sign;
 pub mod verify;
 
-pub struct ArweaveSigner {
+pub struct Signer {
     priv_key: RsaPrivateKey,
 }

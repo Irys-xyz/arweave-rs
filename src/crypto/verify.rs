@@ -7,17 +7,10 @@ use sha2::Digest;
 
 use crate::error::Error;
 
-use super::ArweaveSigner;
+pub struct Verifier {}
 
-pub trait Verifier
-where
-    Self: Sized,
-{
-    fn verify(pk: Bytes, message: Bytes, signature: Bytes) -> Result<bool, Error>;
-}
-
-impl Verifier for ArweaveSigner {
-    fn verify(pk: Bytes, message: Bytes, signature: Bytes) -> Result<bool, Error> {
+impl Verifier {
+    pub fn verify(pk: Bytes, message: Bytes, signature: Bytes) -> Result<bool, Error> {
         let jwt_str = format!(
             "{{\"kty\":\"RSA\",\"e\":\"AQAB\",\"n\":\"{}\"}}",
             BASE64URL.encode(&pk[..])
