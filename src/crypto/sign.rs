@@ -6,10 +6,12 @@ use sha2::Digest;
 
 use crate::error::Error;
 
-use super::Signer;
-
 const SIG_LENGTH: u16 = 512;
 const PUB_LENGTH: u16 = 512;
+
+pub struct Signer {
+    priv_key: RsaPrivateKey,
+}
 
 #[allow(unused)]
 impl Signer {

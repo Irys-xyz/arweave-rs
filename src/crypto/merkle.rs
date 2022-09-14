@@ -3,7 +3,7 @@
 use crate::error::Error;
 use borsh::BorshDeserialize;
 
-use super::hash::{hash_all_sha256, hash_sha256};
+use super::hash::Hasher;
 
 /// Single struct used for original data chunks (Leaves) and branch nodes (hashes of pairs of child nodes).
 #[derive(Debug, PartialEq, Clone)]
@@ -104,10 +104,10 @@ pub fn generate_leaves(data: Vec<u8>) -> Result<Vec<Node>, Error> {
     let mut leaves = Vec::<Node>::new();
     let mut min_byte_range = 0;
     for chunk in data_chunks.into_iter() {
-        let data_hash = hash_sha256(chunk);
+        let data_hash = Hasher::hash_sha256(chunk);
         let max_byte_range = min_byte_range + &chunk.len();
         let offset = max_byte_range.to_note_vec();
-        let id = hash_all_sha256(vec![&data_hash, &offset]);
+        let id = Hasher::hash_all_sha256(vec![&data_hash, &offset]);
 
         leaves.push(Node {
             id,
@@ -125,7 +125,7 @@ pub fn generate_leaves(data: Vec<u8>) -> Result<Vec<Node>, Error> {
 /// Hashes together a single branch node from a pair of child nodes.
 pub fn hash_branch(left: Node, right: Node) -> Result<Node, Error> {
     let max_byte_range = left.max_byte_range.to_note_vec();
-    let id = hash_all_sha256(vec![&left.id, &right.id, &max_byte_range]);
+    let id = Hasher::hash_all_sha256(vec![&left.id, &right.id, &max_byte_range]);
     Ok(Node {
         id,
         data_hash: None,
@@ -232,7 +232,7 @@ pub fn validate_chunk(
             // Validate branches.
             for branch_proof in branch_proofs.iter() {
                 // Calculate the id from the proof.
-                let id = hash_all_sha256(vec![
+                let id = Hasher::hash_all_sha256(vec![
                     &branch_proof.left_id,
                     &branch_proof.right_id,
                     &branch_proof.offset().to_note_vec(),
@@ -252,7 +252,7 @@ pub fn validate_chunk(
             }
 
             // Validate leaf: both id and data_hash are correct.
-            let id = hash_all_sha256(vec![&data_hash, &max_byte_range.to_note_vec()]);
+            let id = Hasher::hash_all_sha256(vec![&data_hash, &max_byte_range.to_note_vec()]);
             if !(id == root_id) & !(data_hash == leaf_proof.data_hash) {
                 return Err(Error::InvalidProof.into());
             }

@@ -35,6 +35,10 @@ impl FromStr for Base64 {
 }
 
 impl Base64 {
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
     pub fn from_utf8_str(str: &str) -> Result<Self, Error> {
         Ok(Self(str.as_bytes().to_vec()))
     }

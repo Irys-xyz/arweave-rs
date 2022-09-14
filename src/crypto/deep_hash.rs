@@ -1,4 +1,4 @@
-use super::hash::{concat_u8_48, hash_all_sha384, hash_sha384};
+use super::hash::Hasher;
 
 pub enum DeepHashItem {
     Blob(Vec<u8>),
@@ -21,15 +21,15 @@ pub fn deep_hash(deep_hash_item: DeepHashItem) -> [u8; 48] {
     let hash = match deep_hash_item {
         DeepHashItem::Blob(blob) => {
             let blob_tag = format!("blob{}", blob.len());
-            hash_all_sha384(vec![blob_tag.as_bytes(), &blob])
+            Hasher::hash_all_sha384(vec![blob_tag.as_bytes(), &blob])
         }
         DeepHashItem::List(list) => {
             let list_tag = format!("list{}", list.len());
-            let mut hash = hash_sha384(list_tag.as_bytes());
+            let mut hash = Hasher::hash_sha384(list_tag.as_bytes());
 
             for child in list.into_iter() {
                 let child_hash = deep_hash(child);
-                hash = hash_sha384(&concat_u8_48(hash, child_hash));
+                hash = Hasher::hash_sha384(&Hasher::concat_u8_48(hash, child_hash));
             }
             hash
         }
@@ -42,14 +42,14 @@ mod tests {
     use crate::{
         crypto::deep_hash::deep_hash,
         error::Error,
-        transaction::{ToItems, Transaction},
+        transaction::{ToItems, Tx},
     };
 
     #[tokio::test]
     async fn test_deep_hash() -> Result<(), Error> {
-        let transaction = Transaction {
+        let transaction = Tx {
             format: 2,
-            ..Transaction::default()
+            ..Tx::default()
         };
         let deep_hash = deep_hash(transaction.to_deep_hash_item().unwrap());
 

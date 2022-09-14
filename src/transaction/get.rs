@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::Error;
 
-use super::Transaction;
+use super::Tx;
 
 #[allow(unused)]
 #[derive(Serialize, Deserialize, Debug)]
@@ -26,7 +26,7 @@ trait TransactionInfoFetch {
     async fn tx_get_price(&self, byte_size: &str) -> pretend::Result<String>;
 
     #[request(method = "GET", path = "/tx/{id}")]
-    async fn tx_get(&self, id: &str) -> pretend::Result<JsonResult<Transaction, Error>>;
+    async fn tx_get(&self, id: &str) -> pretend::Result<JsonResult<Tx, Error>>;
 
     #[request(method = "GET", path = "/tx/{id}/status")]
     async fn tx_status(
@@ -51,7 +51,7 @@ impl TransactionInfoClient {
             .map_err(|err| Error::TransactionInfoError(err.to_string()))
     }
 
-    pub async fn get(&self, id: &str) -> Result<Transaction, Error> {
+    pub async fn get(&self, id: &str) -> Result<Tx, Error> {
         self.0
             .tx_get(id)
             .await
@@ -80,7 +80,7 @@ mod tests {
     use crate::{
         crypto::base64::Base64,
         transaction::get::{
-            Transaction, TransactionConfirmedData, TransactionInfoClient, TransactionStatusResponse,
+            TransactionConfirmedData, TransactionInfoClient, TransactionStatusResponse, Tx,
         },
     };
 
@@ -108,9 +108,9 @@ mod tests {
     fn test_get() {
         let id = "id";
         let base64_id = Base64::from_utf8_str(id).unwrap();
-        let tx_info_mock = Transaction {
+        let tx_info_mock = Tx {
             id: base64_id.clone(),
-            ..Transaction::default()
+            ..Tx::default()
         };
 
         let server = MockServer::start();
