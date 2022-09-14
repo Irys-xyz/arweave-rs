@@ -2,6 +2,7 @@ use std::{path::PathBuf, str::FromStr, time::Duration};
 
 use crypto::{base64::Base64, deep_hash::ToItems, Provider, RingProvider};
 use error::Error;
+use futures::future::try_join;
 use reqwest::header::{ACCEPT, CONTENT_TYPE};
 use tokio::time::sleep;
 use transaction::{get::TransactionInfoClient, tags::Tag, Tx};
@@ -68,22 +69,25 @@ impl Arweave {
         Ok(arweave)
     }
 
-    pub fn create_transaction(
+    pub fn create_w2w_transaction(
         &self,
-        data: Vec<u8>,
+        target: Base64,
         other_tags: Vec<Tag<Base64>>,
         last_tx: Base64,
-        price_terms: (u64, u64),
+        quantity: u64,
+        reward: u64,
         auto_content_tag: bool,
     ) -> Result<Tx, Error> {
         let owner = Base64(self.crypto.pub_key().to_vec());
-        self.tx_generator.new_tx(
+        self.tx_generator.new_w2w_tx(
             &*self.crypto,
             owner,
-            data,
-            other_tags,
+            target,
+            vec![],
+            quantity,
+            reward,
             last_tx,
-            price_terms,
+            other_tags,
             auto_content_tag,
         )
     }

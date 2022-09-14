@@ -42,14 +42,16 @@ pub struct Tx {
 }
 
 pub trait Generator {
-    fn new_tx(
+    fn new_w2w_tx(
         &self,
         crypto: &dyn crypto::Provider,
         owner: Base64,
+        target: Base64,
         data: Vec<u8>,
-        other_tags: Vec<Tag<Base64>>,
+        quantity: u64,
+        reward: u64,
         last_tx: Base64,
-        price_terms: (u64, u64),
+        other_tags: Vec<Tag<Base64>>,
         auto_content_tag: bool,
     ) -> Result<Tx, Error>;
 }
@@ -144,14 +146,16 @@ impl Tx {
 }
 
 impl Generator for Tx {
-    fn new_tx(
+    fn new_w2w_tx(
         &self,
         crypto: &dyn crypto::Provider,
         owner: Base64,
+        target: Base64,
         data: Vec<u8>,
-        other_tags: Vec<Tag<Base64>>,
+        quantity: u64,
+        reward: u64,
         last_tx: Base64,
-        price_terms: (u64, u64),
+        other_tags: Vec<Tag<Base64>>,
         auto_content_tag: bool,
     ) -> Result<Self, Error> {
         let mut transaction = Tx {
@@ -176,10 +180,9 @@ impl Generator for Tx {
         tags.extend(other_tags);
         transaction.tags = tags;
 
-        let blocks_len =
-            transaction.data_size / BLOCK_SIZE + (transaction.data_size % BLOCK_SIZE != 0) as u64;
-        let reward = price_terms.0 + price_terms.1 * (blocks_len - 1);
         transaction.reward = reward;
+        transaction.quantity = quantity;
+        transaction.target = target;
 
         Ok(transaction)
     }

@@ -53,6 +53,7 @@ dependencies = [
  "infer",
  "jsonwebkey",
  "lazy_static",
+ "num-bigint 0.4.3",
  "paris",
  "pretend",
  "pretend-reqwest",
@@ -1349,6 +1350,7 @@ dependencies = [
  "autocfg",
  "num-integer",
  "num-traits",
+ "serde",
 ]
 
 [[package]]
