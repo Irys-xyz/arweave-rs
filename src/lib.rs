@@ -1,8 +1,10 @@
-use std::str::FromStr;
+use std::{path::PathBuf, str::FromStr, time::Duration};
 
-use crypto::RingProvider;
+use crypto::{base64::Base64, deep_hash::ToItems, Provider, RingProvider};
 use error::Error;
-use transaction::Tx;
+use reqwest::header::{ACCEPT, CONTENT_TYPE};
+use tokio::time::sleep;
+use transaction::{get::TransactionInfoClient, tags::Tag, Tx};
 
 pub mod client;
 pub mod crypto;
@@ -32,45 +34,99 @@ pub const CHUNKS_RETRIES: u16 = 10;
 /// Number of seconds to wait between retying to post a failed chunk.
 pub const CHUNKS_RETRY_SLEEP: u64 = 1;
 
-#[derive(Default)]
-pub enum CryptoProvider {
-    #[default]
-    Ring,
-}
-
 pub struct Arweave {
     name: String,
     units: String,
     pub base_url: url::Url,
     pub crypto: Box<dyn crypto::Provider>,
     tx_generator: Box<dyn transaction::Generator>,
+    tx_client: TransactionInfoClient,
 }
 
 impl Default for Arweave {
     fn default() -> Self {
+        let arweave_url = url::Url::from_str("https://arweave.net/").unwrap();
         Self {
             name: Default::default(),
             units: Default::default(),
-            base_url: url::Url::from_str("https://arweave.net/").unwrap(),
+            base_url: arweave_url.clone(),
             crypto: Box::new(RingProvider::default()),
             tx_generator: Box::new(Tx::default()),
+            tx_client: TransactionInfoClient::new(arweave_url),
         }
     }
 }
 
-impl<'a> Arweave {
-    pub async fn new(
-        base_url: url::Url,
-        crypto: Box<dyn crypto::Provider>,
-        tx_generator: Box<dyn transaction::Generator>,
-    ) -> Result<Arweave, Error> {
+impl Arweave {
+    pub fn from_keypair_path(keypair_path: PathBuf, base_url: url::Url) -> Result<Arweave, Error> {
+        let crypto = RingProvider::from_keypair_path(keypair_path);
         let arweave = Arweave {
-            name: String::from("arweave"),
-            units: String::from("winstons"),
             base_url,
-            crypto,
-            tx_generator,
+            crypto: Box::new(crypto),
+            ..Default::default()
         };
         Ok(arweave)
+    }
+
+    pub fn create_transaction(
+        &self,
+        data: Vec<u8>,
+        other_tags: Vec<Tag<Base64>>,
+        last_tx: Base64,
+        price_terms: (u64, u64),
+        auto_content_tag: bool,
+    ) -> Result<Tx, Error> {
+        let owner = Base64(self.crypto.pub_key().to_vec());
+        self.tx_generator.new_tx(
+            &*self.crypto,
+            owner,
+            data,
+            other_tags,
+            last_tx,
+            price_terms,
+            auto_content_tag,
+        )
+    }
+
+    /// Gets deep hash, signs and sets signature and id.
+    pub fn sign_transaction(&self, mut transaction: Tx) -> Result<Tx, Error> {
+        let deep_hash_item = transaction.to_deep_hash_item()?;
+        let deep_hash = self.crypto.deep_hash(deep_hash_item);
+        let signature = self.crypto.sign(&deep_hash);
+        let id = self.crypto.hash_sha256(&signature);
+        transaction.signature = Base64(signature);
+        transaction.id = Base64(id.to_vec());
+        Ok(transaction)
+    }
+
+    pub async fn post_transaction(&self, signed_transaction: &Tx) -> Result<(Base64, u64), Error> {
+        if signed_transaction.id.0.is_empty() {
+            return Err(Error::UnsignedTransaction);
+        }
+
+        let mut retries = 0;
+        let mut status = reqwest::StatusCode::NOT_FOUND;
+        let url = self.base_url.join("tx").expect("Valid url joining");
+        let client = reqwest::Client::new();
+
+        while (retries < CHUNKS_RETRIES) & (status != reqwest::StatusCode::OK) {
+            status = client
+                .post(url.clone())
+                .json(&signed_transaction)
+                .header(&ACCEPT, "application/json")
+                .header(&CONTENT_TYPE, "application/json")
+                .send()
+                .await
+                .unwrap()
+                .status();
+            if status == reqwest::StatusCode::OK {
+                return Ok((signed_transaction.id.clone(), signed_transaction.reward));
+            }
+            dbg!("post_transaction: {:?}", status);
+            sleep(Duration::from_secs(CHUNKS_RETRY_SLEEP)).await;
+            retries += 1;
+        }
+
+        Err(Error::StatusCodeNotOk)
     }
 }

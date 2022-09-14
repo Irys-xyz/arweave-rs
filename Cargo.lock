@@ -53,6 +53,7 @@ dependencies = [
  "infer",
  "jsonwebkey",
  "lazy_static",
+ "paris",
  "pretend",
  "pretend-reqwest",
  "rand 0.8.5",
@@ -1458,6 +1459,12 @@ dependencies = [
  "pkg-config",
  "vcpkg",
 ]
+
+[[package]]
+name = "paris"
+version = "1.5.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2eaf2319cd71dd9ff38c72bebde61b9ea657134abcf26ae4205f54f772a32810"
 
 [[package]]
 name = "parking"

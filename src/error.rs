@@ -3,6 +3,12 @@ use thiserror::Error;
 
 #[derive(Debug, Error, Deserialize)]
 pub enum Error {
+    #[error("Status code not Ok")]
+    StatusCodeNotOk,
+
+    #[error("Unsigned transaction")]
+    UnsignedTransaction,
+
     #[error("Invalid proof")]
     InvalidProof,
 

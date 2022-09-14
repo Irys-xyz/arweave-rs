@@ -23,7 +23,7 @@ pub trait ToItems<'a, T> {
 /// Calculates data root of transaction in accordance with implementation in [arweave-js](https://github.com/ArweaveTeam/arweave-js/blob/master/src/common/lib/deepHash.ts).
 /// [`DeepHashItem`] is a recursive Enum that allows the function to be applied to
 /// nested [`Vec<u8>`] of arbitrary depth.
-pub fn deep_hash(hasher: &impl Hasher, deep_hash_item: DeepHashItem) -> [u8; 48] {
+pub fn deep_hash(hasher: &dyn Hasher, deep_hash_item: DeepHashItem) -> [u8; 48] {
     let hash = match deep_hash_item {
         DeepHashItem::Blob(blob) => {
             let blob_tag = format!("blob{}", blob.len());
@@ -42,7 +42,6 @@ pub fn deep_hash(hasher: &impl Hasher, deep_hash_item: DeepHashItem) -> [u8; 48]
     };
     hash
 }
-
 #[cfg(test)]
 mod tests {
     use crate::{
