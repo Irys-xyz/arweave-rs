@@ -9,12 +9,18 @@ use crate::error::Error;
 const SIG_LENGTH: u16 = 512;
 const PUB_LENGTH: u16 = 512;
 
-pub struct Signer {
+pub trait Signer {
+    fn sign(&self, message: Bytes) -> Result<Bytes, Error>;
+    fn get_sig_length(&self) -> u16;
+    fn get_pub_length(&self) -> u16;
+    fn pub_key(&self) -> Bytes;
+}
+
+pub struct RsaSigner {
     priv_key: RsaPrivateKey,
 }
 
-#[allow(unused)]
-impl Signer {
+impl RsaSigner {
     pub fn new(priv_key: RsaPrivateKey) -> Self {
         Self { priv_key }
     }
@@ -25,8 +31,11 @@ impl Signer {
 
         Self::new(priv_key)
     }
+}
 
-    pub fn sign(&self, message: Bytes) -> Result<Bytes, Error> {
+#[allow(unused)]
+impl Signer for RsaSigner {
+    fn sign(&self, message: Bytes) -> Result<Bytes, Error> {
         let mut hasher = sha2::Sha256::new();
         hasher.update(&message);
         let hashed = hasher.finalize();
@@ -46,15 +55,15 @@ impl Signer {
         Ok(signature.into())
     }
 
-    pub fn pub_key(&self) -> Bytes {
+    fn pub_key(&self) -> Bytes {
         self.priv_key.to_public_key().n().to_bytes_be().into()
     }
 
-    pub fn get_sig_length(&self) -> u16 {
+    fn get_sig_length(&self) -> u16 {
         SIG_LENGTH
     }
 
-    pub fn get_pub_length(&self) -> u16 {
+    fn get_pub_length(&self) -> u16 {
         PUB_LENGTH
     }
 }
@@ -65,7 +74,10 @@ mod tests {
     use jsonwebkey as jwk;
 
     use crate::{
-        crypto::{sign::Signer, verify::Verifier},
+        crypto::{
+            sign::{RsaSigner, Signer},
+            verify::{RsaVerifier, Verifier},
+        },
         wallet::load::load_from_file,
     };
 
@@ -74,11 +86,12 @@ mod tests {
         let msg = Bytes::copy_from_slice(b"Hello, Arweave!");
         let jwk: jwk::JsonWebKey =
             load_from_file("res/test_wallet.json").expect("Error loading wallet");
-        let signer = Signer::from_jwk(jwk);
+        let signer = RsaSigner::from_jwk(jwk);
 
         let sig = signer.sign(msg.clone()).unwrap();
         let pub_key = signer.pub_key();
 
-        assert!(Verifier::verify(pub_key, msg.clone(), sig).is_ok());
+        let verifier = RsaVerifier::default();
+        assert!(verifier.verify(pub_key, msg.clone(), sig).is_ok());
     }
 }

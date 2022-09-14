@@ -3,7 +3,9 @@ use serde::{Deserialize, Serialize};
 use crate::{
     crypto::base64::Base64,
     crypto::{
-        deep_hash::DeepHashItem,
+        self,
+        deep_hash::{DeepHashItem, ToItems},
+        hash::Hasher,
         merkle::{generate_data_root, generate_leaves, resolve_proofs, Node, Proof},
     },
     error::Error,
@@ -15,10 +17,6 @@ use self::tags::FromUtf8Strs;
 
 pub mod get;
 pub mod tags;
-
-pub trait ToItems<'a, T> {
-    fn to_deep_hash_item(&'a self) -> Result<DeepHashItem, Error>;
-}
 
 #[derive(Serialize, Deserialize, Debug, Default, PartialEq)]
 pub struct Tx {
@@ -41,6 +39,19 @@ pub struct Tx {
     pub chunks: Vec<Node>,
     #[serde(skip)]
     pub proofs: Vec<Proof>,
+}
+
+pub trait Generator {
+    fn new_tx(
+        &self,
+        crypto: &dyn crypto::Provider,
+        owner: Base64,
+        data: Vec<u8>,
+        other_tags: Vec<Tag<Base64>>,
+        last_tx: Base64,
+        price_terms: (u64, u64),
+        auto_content_tag: bool,
+    ) -> Result<Tx, Error>;
 }
 
 impl<'a> ToItems<'a, Tx> for Tx {
@@ -94,7 +105,7 @@ impl Tx {
         Tag::<Base64>::from_utf8_strs("User-Agent", &format!("arweave-rs/{}", VERSION)).unwrap()
     }
 
-    fn generate_merkle(data: Vec<u8>) -> Result<Tx, Error> {
+    fn generate_merkle(hasher: &dyn Hasher, data: Vec<u8>) -> Result<Tx, Error> {
         if data.is_empty() {
             let empty_string = Base64::from_utf8_str("").expect("Empty string");
             Ok(Tx {
@@ -107,8 +118,8 @@ impl Tx {
                 ..Default::default()
             })
         } else {
-            let mut chunks = generate_leaves(data.clone()).unwrap();
-            let root = generate_data_root(chunks.clone()).unwrap();
+            let mut chunks = generate_leaves(&*hasher, data.clone()).unwrap();
+            let root = generate_data_root(&*hasher, chunks.clone()).unwrap();
             let data_root = Base64(root.id.clone().into_iter().collect());
             let mut proofs = resolve_proofs(root, None).unwrap();
 
@@ -130,8 +141,12 @@ impl Tx {
             })
         }
     }
+}
 
-    pub fn new(
+impl Generator for Tx {
+    fn new_tx(
+        &self,
+        crypto: &dyn crypto::Provider,
         owner: Base64,
         data: Vec<u8>,
         other_tags: Vec<Tag<Base64>>,
@@ -142,7 +157,7 @@ impl Tx {
         let mut transaction = Tx {
             owner,
             last_tx,
-            ..Self::generate_merkle(data).expect("Valid data")
+            ..Self::generate_merkle(crypto.get_hasher(), data).expect("Valid data")
         };
 
         let mut tags = vec![Self::base_tag()];

@@ -1,27 +1,49 @@
 use ring::digest::{Context, SHA256, SHA384};
 
-pub struct Hasher {}
+pub trait Hasher {
+    fn hash_sha256(&self, message: &[u8]) -> [u8; 32];
+    fn hash_sha384(&self, message: &[u8]) -> [u8; 48];
+    fn hash_all_sha256(&self, messages: Vec<&[u8]>) -> [u8; 32];
+    fn hash_all_sha384(&self, messages: Vec<&[u8]>) -> [u8; 48];
+    fn copy_into_slice_32(&self, m: &[u8]) -> [u8; 32];
+    fn copy_into_slice_48(&self, m: &[u8]) -> [u8; 48];
+    fn concat_u8_48(&self, left: [u8; 48], right: [u8; 48]) -> [u8; 96];
+}
 
-impl Hasher {
-    pub fn copy_into_slice_32(m: &[u8]) -> [u8; 32] {
+pub struct RingHasher {}
+
+impl Default for RingHasher {
+    fn default() -> Self {
+        RingHasher {}
+    }
+}
+
+impl RingHasher {
+    pub fn new() -> Self {
+        RingHasher::default()
+    }
+}
+
+impl Hasher for RingHasher {
+    fn copy_into_slice_32(&self, m: &[u8]) -> [u8; 32] {
         let mut result: [u8; 32] = [0; 32];
         result.copy_from_slice(m);
         result
     }
 
-    pub fn copy_into_slice_48(m: &[u8]) -> [u8; 48] {
+    fn copy_into_slice_48(&self, m: &[u8]) -> [u8; 48] {
         let mut result: [u8; 48] = [0; 48];
         result.copy_from_slice(m);
         result
     }
 
-    pub fn concat_u8_48(left: [u8; 48], right: [u8; 48]) -> [u8; 96] {
+    fn concat_u8_48(&self, left: [u8; 48], right: [u8; 48]) -> [u8; 96] {
         let mut iter = left.into_iter().chain(right);
         let result = [(); 96].map(|_| iter.next().unwrap());
         result
     }
 
-    pub fn hash_sha256(message: &[u8]) -> [u8; 32] {
+    fn hash_sha256(&self, message: &[u8]) -> [u8; 32] {
         let mut context = Context::new(&SHA256);
         context.update(message);
         let mut result: [u8; 32] = [0; 32];
@@ -29,7 +51,7 @@ impl Hasher {
         result
     }
 
-    pub fn hash_sha384(message: &[u8]) -> [u8; 48] {
+    fn hash_sha384(&self, message: &[u8]) -> [u8; 48] {
         let mut context = Context::new(&SHA384);
         context.update(message);
         let mut result: [u8; 48] = [0; 48];
@@ -38,26 +60,26 @@ impl Hasher {
     }
 
     /// Returns a SHA256 hash of the the concatenated SHA256 hashes of a vector of messages.
-    pub fn hash_all_sha256(messages: Vec<&[u8]>) -> [u8; 32] {
+    fn hash_all_sha256(&self, messages: Vec<&[u8]>) -> [u8; 32] {
         let hash: Vec<u8> = messages
             .into_iter()
-            .map(|m| Hasher::hash_sha256(m))
+            .map(|m| self.hash_sha256(m))
             .into_iter()
             .flatten()
             .collect();
-        let hash = Hasher::hash_sha256(&hash);
+        let hash = self.hash_sha256(&hash);
         hash
     }
 
     /// Returns a SHA384 hash of the the concatenated SHA384 hashes of a vector messages.
-    pub fn hash_all_sha384(messages: Vec<&[u8]>) -> [u8; 48] {
+    fn hash_all_sha384(&self, messages: Vec<&[u8]>) -> [u8; 48] {
         let hash: Vec<u8> = messages
             .into_iter()
-            .map(|m| Hasher::hash_sha384(m))
+            .map(|m| self.hash_sha384(m))
             .into_iter()
             .flatten()
             .collect();
-        let hash = Hasher::hash_sha384(&hash);
+        let hash = self.hash_sha384(&hash);
         hash
     }
 }

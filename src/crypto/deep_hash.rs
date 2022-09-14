@@ -1,3 +1,5 @@
+use crate::error::Error;
+
 use super::hash::Hasher;
 
 pub enum DeepHashItem {
@@ -14,22 +16,26 @@ impl DeepHashItem {
     }
 }
 
+pub trait ToItems<'a, T> {
+    fn to_deep_hash_item(&'a self) -> Result<DeepHashItem, Error>;
+}
+
 /// Calculates data root of transaction in accordance with implementation in [arweave-js](https://github.com/ArweaveTeam/arweave-js/blob/master/src/common/lib/deepHash.ts).
 /// [`DeepHashItem`] is a recursive Enum that allows the function to be applied to
 /// nested [`Vec<u8>`] of arbitrary depth.
-pub fn deep_hash(deep_hash_item: DeepHashItem) -> [u8; 48] {
+pub fn deep_hash(hasher: &impl Hasher, deep_hash_item: DeepHashItem) -> [u8; 48] {
     let hash = match deep_hash_item {
         DeepHashItem::Blob(blob) => {
             let blob_tag = format!("blob{}", blob.len());
-            Hasher::hash_all_sha384(vec![blob_tag.as_bytes(), &blob])
+            hasher.hash_all_sha384(vec![blob_tag.as_bytes(), &blob])
         }
         DeepHashItem::List(list) => {
             let list_tag = format!("list{}", list.len());
-            let mut hash = Hasher::hash_sha384(list_tag.as_bytes());
+            let mut hash = hasher.hash_sha384(list_tag.as_bytes());
 
             for child in list.into_iter() {
-                let child_hash = deep_hash(child);
-                hash = Hasher::hash_sha384(&Hasher::concat_u8_48(hash, child_hash));
+                let child_hash = deep_hash(hasher, child);
+                hash = hasher.hash_sha384(&hasher.concat_u8_48(hash, child_hash));
             }
             hash
         }
@@ -40,9 +46,12 @@ pub fn deep_hash(deep_hash_item: DeepHashItem) -> [u8; 48] {
 #[cfg(test)]
 mod tests {
     use crate::{
-        crypto::deep_hash::deep_hash,
+        crypto::{
+            deep_hash::{deep_hash, ToItems},
+            hash::RingHasher,
+        },
         error::Error,
-        transaction::{ToItems, Tx},
+        transaction::Tx,
     };
 
     #[tokio::test]
@@ -51,7 +60,8 @@ mod tests {
             format: 2,
             ..Tx::default()
         };
-        let deep_hash = deep_hash(transaction.to_deep_hash_item().unwrap());
+        let hasher = RingHasher::new();
+        let deep_hash = deep_hash(&hasher, transaction.to_deep_hash_item().unwrap());
 
         let correct_hash: [u8; 48] = [
             72, 43, 204, 204, 122, 20, 48, 138, 114, 252, 43, 128, 87, 244, 105, 231, 189, 246, 94,

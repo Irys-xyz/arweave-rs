@@ -1,3 +1,9 @@
+use std::str::FromStr;
+
+use crypto::RingProvider;
+use error::Error;
+use transaction::Tx;
+
 pub mod client;
 pub mod crypto;
 pub mod error;
@@ -26,9 +32,45 @@ pub const CHUNKS_RETRIES: u16 = 10;
 /// Number of seconds to wait between retying to post a failed chunk.
 pub const CHUNKS_RETRY_SLEEP: u64 = 1;
 
+#[derive(Default)]
+pub enum CryptoProvider {
+    #[default]
+    Ring,
+}
+
 pub struct Arweave {
-    pub name: String,
-    pub units: String,
+    name: String,
+    units: String,
     pub base_url: url::Url,
-    pub crypto: crypto::Provider,
+    pub crypto: Box<dyn crypto::Provider>,
+    tx_generator: Box<dyn transaction::Generator>,
+}
+
+impl Default for Arweave {
+    fn default() -> Self {
+        Self {
+            name: Default::default(),
+            units: Default::default(),
+            base_url: url::Url::from_str("https://arweave.net/").unwrap(),
+            crypto: Box::new(RingProvider::default()),
+            tx_generator: Box::new(Tx::default()),
+        }
+    }
+}
+
+impl<'a> Arweave {
+    pub async fn new(
+        base_url: url::Url,
+        crypto: Box<dyn crypto::Provider>,
+        tx_generator: Box<dyn transaction::Generator>,
+    ) -> Result<Arweave, Error> {
+        let arweave = Arweave {
+            name: String::from("arweave"),
+            units: String::from("winstons"),
+            base_url,
+            crypto,
+            tx_generator,
+        };
+        Ok(arweave)
+    }
 }

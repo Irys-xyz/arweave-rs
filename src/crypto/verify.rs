@@ -7,10 +7,20 @@ use sha2::Digest;
 
 use crate::error::Error;
 
-pub struct Verifier {}
+pub trait Verifier {
+    fn verify(&self, pk: Bytes, message: Bytes, signature: Bytes) -> Result<bool, Error>;
+}
 
-impl Verifier {
-    pub fn verify(pk: Bytes, message: Bytes, signature: Bytes) -> Result<bool, Error> {
+pub struct RsaVerifier {}
+
+impl Default for RsaVerifier {
+    fn default() -> Self {
+        Self {}
+    }
+}
+
+impl Verifier for RsaVerifier {
+    fn verify(&self, pk: Bytes, message: Bytes, signature: Bytes) -> Result<bool, Error> {
         let jwt_str = format!(
             "{{\"kty\":\"RSA\",\"e\":\"AQAB\",\"n\":\"{}\"}}",
             BASE64URL.encode(&pk[..])
