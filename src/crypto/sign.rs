@@ -1,97 +1,107 @@
-use bytes::Bytes;
-use jsonwebkey as jwk;
-use rand::thread_rng;
-use rsa::{pkcs8::DecodePrivateKey, PaddingScheme, PublicKeyParts, RsaPrivateKey};
-use sha2::Digest;
+//! Functionality for creating and verifying signatures and hashing.
 
-use crate::error::Error;
+use crate::{error::Error, wallet::load::load_from_file};
+use jsonwebkey::JsonWebKey;
+use pretend::Json;
+use ring::{
+    digest::{Context, SHA256},
+    rand::{self, SecureRandom},
+    signature::{self, KeyPair, RsaKeyPair},
+};
+use std::fs as fsSync;
+use std::path::PathBuf;
+use tokio::fs;
 
-const SIG_LENGTH: u16 = 512;
-const PUB_LENGTH: u16 = 512;
+use super::base64::Base64;
 
-pub trait Signer {
-    fn sign(&self, message: Bytes) -> Result<Bytes, Error>;
-    fn get_sig_length(&self) -> u16;
-    fn get_pub_length(&self) -> u16;
-    fn pub_key(&self) -> Bytes;
+/// Struct for for crypto methods.
+pub struct Signer {
+    pub keypair: RsaKeyPair,
+    pub sr: rand::SystemRandom,
 }
 
-pub struct RsaSigner {
-    priv_key: RsaPrivateKey,
-}
-
-impl RsaSigner {
-    pub fn new(priv_key: RsaPrivateKey) -> Self {
-        Self { priv_key }
-    }
-
-    pub fn from_jwk(jwk: jwk::JsonWebKey) -> Self {
-        let pem = jwk.key.to_pem();
-        let priv_key = RsaPrivateKey::from_pkcs8_pem(&pem).unwrap();
-
-        Self::new(priv_key)
+impl Default for Signer {
+    fn default() -> Self {
+        let jwk_parsed = load_from_file(".wallet.json").expect("Valid wallet file");
+        Self {
+            keypair: signature::RsaKeyPair::from_pkcs8(&jwk_parsed.key.as_ref().to_der()).unwrap(),
+            sr: rand::SystemRandom::new(),
+        }
     }
 }
 
-#[allow(unused)]
-impl Signer for RsaSigner {
-    fn sign(&self, message: Bytes) -> Result<Bytes, Error> {
-        let mut hasher = sha2::Sha256::new();
-        hasher.update(&message);
-        let hashed = hasher.finalize();
+impl Signer {
+    pub async fn from_keypair_path(keypair_path: PathBuf) -> Result<Signer, Error> {
+        dbg!(&keypair_path);
+        let data = fs::read_to_string(keypair_path).await.unwrap();
 
-        let rng = thread_rng();
-        let padding = PaddingScheme::PSS {
-            salt_rng: Box::new(rng),
-            digest: Box::new(sha2::Sha256::new()),
-            salt_len: None,
-        };
-
-        let signature = self
-            .priv_key
-            .sign(padding, &hashed)
-            .map_err(|e| Error::CryptoError(e.to_string()))?;
-
-        Ok(signature.into())
+        let jwk_parsed: JsonWebKey = data.parse().unwrap();
+        Ok(Self {
+            keypair: signature::RsaKeyPair::from_pkcs8(&jwk_parsed.key.as_ref().to_der()).unwrap(),
+            sr: rand::SystemRandom::new(),
+        })
     }
 
-    fn pub_key(&self) -> Bytes {
-        self.priv_key.to_public_key().n().to_bytes_be().into()
+    pub fn from_keypair_path_sync(keypair_path: PathBuf) -> Result<Signer, Error> {
+        let data = fsSync::read_to_string(keypair_path).unwrap();
+
+        let jwk_parsed: JsonWebKey = data.parse().unwrap();
+        Ok(Self {
+            keypair: signature::RsaKeyPair::from_pkcs8(&jwk_parsed.key.as_ref().to_der()).unwrap(),
+            sr: rand::SystemRandom::new(),
+        })
     }
 
-    fn get_sig_length(&self) -> u16 {
-        SIG_LENGTH
+    pub fn keypair_modulus(&self) -> Result<Base64, Error> {
+        let modulus = self
+            .keypair
+            .public_key()
+            .modulus()
+            .big_endian_without_leading_zero();
+        Ok(Base64(modulus.to_vec()))
     }
 
-    fn get_pub_length(&self) -> u16 {
-        PUB_LENGTH
+    pub fn wallet_address(&self) -> Result<Base64, Error> {
+        let mut context = Context::new(&SHA256);
+        context.update(&self.keypair_modulus()?.0[..]);
+        let wallet_address = Base64(context.finish().as_ref().to_vec());
+        Ok(wallet_address)
+    }
+
+    pub fn sign(&self, message: &[u8]) -> Result<Vec<u8>, Error> {
+        let rng = rand::SystemRandom::new();
+        let mut signature = vec![0; self.keypair.public_modulus_len()];
+        self.keypair
+            .sign(&signature::RSA_PSS_SHA256, &rng, message, &mut signature)
+            .unwrap();
+        Ok(signature)
+    }
+
+    pub fn verify(&self, signature: &[u8], message: &[u8]) -> Result<(), Error> {
+        let public_key = signature::UnparsedPublicKey::new(
+            &signature::RSA_PSS_2048_8192_SHA256,
+            self.keypair.public_key().as_ref(),
+        );
+        public_key.verify(message, signature).unwrap();
+        Ok(())
+    }
+
+    pub fn fill_rand(&self, dest: &mut [u8]) -> Result<(), Error> {
+        let rand_bytes = self.sr.fill(dest).unwrap();
+        Ok(rand_bytes)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use bytes::Bytes;
-    use jsonwebkey as jwk;
-
-    use crate::{
-        crypto::{
-            sign::{RsaSigner, Signer},
-            verify::{RsaVerifier, Verifier},
-        },
-        wallet::load::load_from_file,
-    };
+    use crate::crypto::sign::Signer;
 
     #[test]
-    fn should_sign_and_verify() {
-        let msg = Bytes::copy_from_slice(b"Hello, Arweave!");
-        let jwk: jwk::JsonWebKey =
-            load_from_file("res/test_wallet.json").expect("Error loading wallet");
-        let signer = RsaSigner::from_jwk(jwk);
-
-        let sig = signer.sign(msg.clone()).unwrap();
-        let pub_key = signer.pub_key();
-
-        let verifier = RsaVerifier::default();
-        assert!(verifier.verify(pub_key, msg.clone(), sig).is_ok());
+    fn test_default_keypair() {
+        let provider = Signer::default();
+        assert_eq!(
+            provider.wallet_address().unwrap().to_string(),
+            "MKp3hwQJrL8gVIdOTkoZw-dOnALh4UiRKrA8vyTcfH8"
+        );
     }
 }

@@ -1,8 +1,7 @@
 use std::{path::PathBuf, str::FromStr, time::Duration};
 
-use crypto::{base64::Base64, deep_hash::ToItems, Provider, RingProvider};
+use crypto::{base64::Base64, deep_hash::ToItems, RingProvider};
 use error::Error;
-use futures::future::try_join;
 use reqwest::header::{ACCEPT, CONTENT_TYPE};
 use tokio::time::sleep;
 use transaction::{get::TransactionInfoClient, tags::Tag, Tx};
@@ -69,16 +68,16 @@ impl Arweave {
         Ok(arweave)
     }
 
-    pub fn create_w2w_transaction(
+    pub async fn create_w2w_transaction(
         &self,
         target: Base64,
         other_tags: Vec<Tag<Base64>>,
-        last_tx: Base64,
         quantity: u64,
         reward: u64,
         auto_content_tag: bool,
     ) -> Result<Tx, Error> {
-        let owner = Base64(self.crypto.pub_key().to_vec());
+        let owner = self.crypto.pub_key();
+        let last_tx = self.get_last_tx().await;
         self.tx_generator.new_w2w_tx(
             &*self.crypto,
             owner,
@@ -132,5 +131,15 @@ impl Arweave {
         }
 
         Err(Error::StatusCodeNotOk)
+    }
+
+    async fn get_last_tx(&self) -> Base64 {
+        // Fetch and set last_tx if not provided (primarily for testing).
+        let resp = reqwest::get(self.base_url.join("tx_anchor").unwrap())
+            .await
+            .unwrap();
+        dbg!("last_tx: {}", resp.status());
+        let last_tx_str = resp.text().await.unwrap();
+        Base64::from_str(&last_tx_str).unwrap()
     }
 }
