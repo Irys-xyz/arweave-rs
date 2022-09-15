@@ -3,6 +3,12 @@ use thiserror::Error;
 
 #[derive(Debug, Error, Deserialize)]
 pub enum Error {
+    #[error("Error getting oracle price: {0}")]
+    OracleGetPriceError(String),
+
+    #[error("Getting Arweave price from oracle: {0}")]
+    ArweaveGetPriceError(String),
+
     #[error("Status code not Ok")]
     StatusCodeNotOk,
 

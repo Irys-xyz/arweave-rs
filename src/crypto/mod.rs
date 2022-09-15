@@ -17,7 +17,7 @@ pub trait Provider {
     fn deep_hash(&self, deep_hash_item: DeepHashItem) -> [u8; 48];
     fn sign(&self, message: &[u8]) -> Vec<u8>;
     fn hash_sha256(&self, message: &[u8]) -> [u8; 32];
-    fn pub_key(&self) -> Base64;
+    fn keypair_modulus(&self) -> Base64;
     fn get_hasher(&self) -> &dyn Hasher;
 }
 
@@ -69,7 +69,7 @@ impl Provider for RingProvider {
         self.hasher.hash_sha256(message)
     }
 
-    fn pub_key(&self) -> Base64 {
+    fn keypair_modulus(&self) -> Base64 {
         self.signer.keypair_modulus().unwrap()
     }
 }

@@ -2,9 +2,12 @@ use std::{path::PathBuf, str::FromStr, time::Duration};
 
 use crypto::{base64::Base64, deep_hash::ToItems, RingProvider};
 use error::Error;
+use futures::future::try_join;
+use num_bigint::BigUint;
 use reqwest::header::{ACCEPT, CONTENT_TYPE};
+use serde::{Deserialize, Serialize};
 use tokio::time::sleep;
-use transaction::{get::TransactionInfoClient, tags::Tag, Tx};
+use transaction::{tags::Tag, Tx};
 
 pub mod client;
 pub mod crypto;
@@ -34,13 +37,22 @@ pub const CHUNKS_RETRIES: u16 = 10;
 /// Number of seconds to wait between retying to post a failed chunk.
 pub const CHUNKS_RETRY_SLEEP: u64 = 1;
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct OraclePrice {
+    pub arweave: OraclePricePair,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct OraclePricePair {
+    pub usd: f32,
+}
+
 pub struct Arweave {
     name: String,
     units: String,
     pub base_url: url::Url,
     pub crypto: Box<dyn crypto::Provider>,
     tx_generator: Box<dyn transaction::Generator>,
-    tx_client: TransactionInfoClient,
 }
 
 impl Default for Arweave {
@@ -52,7 +64,6 @@ impl Default for Arweave {
             base_url: arweave_url.clone(),
             crypto: Box::new(RingProvider::default()),
             tx_generator: Box::new(Tx::default()),
-            tx_client: TransactionInfoClient::new(arweave_url),
         }
     }
 }
@@ -73,18 +84,16 @@ impl Arweave {
         target: Base64,
         other_tags: Vec<Tag<Base64>>,
         quantity: u64,
-        reward: u64,
+        price_terms: (u64, u64),
         auto_content_tag: bool,
     ) -> Result<Tx, Error> {
-        let owner = self.crypto.pub_key();
         let last_tx = self.get_last_tx().await;
         self.tx_generator.new_w2w_tx(
             &*self.crypto,
-            owner,
             target,
             vec![],
             quantity,
-            reward,
+            price_terms,
             last_tx,
             other_tags,
             auto_content_tag,
@@ -93,7 +102,7 @@ impl Arweave {
 
     /// Gets deep hash, signs and sets signature and id.
     pub fn sign_transaction(&self, mut transaction: Tx) -> Result<Tx, Error> {
-        let deep_hash_item = transaction.to_deep_hash_item()?;
+        let deep_hash_item = transaction.to_deep_hash_item().unwrap();
         let deep_hash = self.crypto.deep_hash(deep_hash_item);
         let signature = self.crypto.sign(&deep_hash);
         let id = self.crypto.hash_sha256(&signature);
@@ -138,8 +147,50 @@ impl Arweave {
         let resp = reqwest::get(self.base_url.join("tx_anchor").unwrap())
             .await
             .unwrap();
-        dbg!("last_tx: {}", resp.status());
         let last_tx_str = resp.text().await.unwrap();
         Base64::from_str(&last_tx_str).unwrap()
+    }
+
+    /// Returns price of uploading data to the network in winstons and USD per AR and USD per SOL
+    /// as a BigUint with two decimals.
+    pub async fn get_price(&self, bytes: &u64) -> Result<(BigUint, BigUint), Error> {
+        let url = self
+            .base_url
+            .join("price/")
+            .unwrap()
+            .join(&bytes.to_string())
+            .unwrap();
+        let winstons_per_bytes = reqwest::get(url)
+            .await
+            .map_err(|e| Error::ArweaveGetPriceError(e.to_string()))?
+            .json::<u64>()
+            .await
+            .unwrap();
+        let winstons_per_bytes = BigUint::from(winstons_per_bytes);
+
+        let oracle_url =
+            "https://api.coingecko.com/api/v3/simple/price?ids=arweave&vs_currencies=usd";
+        let prices = reqwest::get(oracle_url)
+            .await
+            .map_err(|e| Error::OracleGetPriceError(e.to_string()))?
+            .json::<OraclePrice>()
+            .await
+            .unwrap();
+
+        let usd_per_ar: BigUint = BigUint::from((prices.arweave.usd * 100.0).floor() as u32);
+
+        Ok((winstons_per_bytes, usd_per_ar))
+    }
+
+    /// Gets base and incremental prices for a 256 KB block of data.
+    pub async fn get_price_terms(&self, reward_mult: f32) -> Result<(u64, u64), Error> {
+        let (prices1, prices2) = try_join(
+            self.get_price(&(256 * 1024)),
+            self.get_price(&(256 * 1024 * 2)),
+        )
+        .await?;
+        let base = (prices1.0.to_u64_digits()[0] as f32 * reward_mult) as u64;
+        let incremental = (prices2.0.to_u64_digits()[0] as f32 * reward_mult) as u64 - &base;
+        Ok((base, incremental))
     }
 }

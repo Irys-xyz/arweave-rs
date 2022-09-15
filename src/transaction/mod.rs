@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{ser::SerializeStruct, Deserialize, Serialize, Serializer};
 
 use crate::{
     crypto::base64::Base64,
@@ -10,30 +10,27 @@ use crate::{
     },
     error::Error,
     transaction::tags::Tag,
-    BLOCK_SIZE, VERSION,
+    VERSION,
 };
 
 use self::tags::FromUtf8Strs;
 
-pub mod get;
 pub mod tags;
 
-#[derive(Serialize, Deserialize, Debug, Default, PartialEq)]
+#[derive(Deserialize, Debug, Default, PartialEq)]
 pub struct Tx {
     /* Fields required for signing */
     pub format: u8,
-    pub owner: Base64,
-    pub target: Base64,
-    pub data_root: Base64,
-    pub data_size: u64,
-    pub quantity: u64,
-    pub reward: u64,
-    pub last_tx: Base64,
-    pub tags: Vec<Tag<Base64>>,
-
-    /* Fields generated after signing */
     pub id: Base64,
+    pub last_tx: Base64,
+    pub owner: Base64,
+    pub tags: Vec<Tag<Base64>>,
+    pub target: Base64,
+    pub quantity: u64,
+    pub data_root: Base64,
     pub data: Base64,
+    pub data_size: u64,
+    pub reward: u64,
     pub signature: Base64,
     #[serde(skip)]
     pub chunks: Vec<Node>,
@@ -41,15 +38,37 @@ pub struct Tx {
     pub proofs: Vec<Proof>,
 }
 
+impl Serialize for Tx {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut s = serializer.serialize_struct("Tx", 12)?;
+        s.serialize_field("format", &self.format)?;
+        s.serialize_field("owner", &self.owner.to_string())?;
+        s.serialize_field("target", &self.target.to_string())?;
+        s.serialize_field("data_root", &self.data_root.to_string())?;
+        s.serialize_field("data_size", &self.data_size.to_string())?;
+        s.serialize_field("quantity", &self.quantity.to_string())?;
+        s.serialize_field("reward", &self.reward.to_string())?;
+        s.serialize_field("last_tx", &self.last_tx.to_string())?;
+        s.serialize_field("tags", &self.tags)?;
+        s.serialize_field("id", &self.id.to_string())?;
+        s.serialize_field("data", &self.data.to_string())?;
+        s.serialize_field("signature", &self.signature.to_string())?;
+
+        s.end()
+    }
+}
+
 pub trait Generator {
     fn new_w2w_tx(
         &self,
         crypto: &dyn crypto::Provider,
-        owner: Base64,
         target: Base64,
         data: Vec<u8>,
         quantity: u64,
-        reward: u64,
+        price_terms: (u64, u64),
         last_tx: Base64,
         other_tags: Vec<Tag<Base64>>,
         auto_content_tag: bool,
@@ -109,12 +128,12 @@ impl Tx {
 
     fn generate_merkle(hasher: &dyn Hasher, data: Vec<u8>) -> Result<Tx, Error> {
         if data.is_empty() {
-            let empty_string = Base64::from_utf8_str("").expect("Empty string");
+            let empty = Base64(vec![]);
             Ok(Tx {
                 format: 2,
                 data_size: 0,
-                data: empty_string.clone(),
-                data_root: empty_string,
+                data: empty.clone(),
+                data_root: empty,
                 chunks: vec![],
                 proofs: vec![],
                 ..Default::default()
@@ -149,22 +168,21 @@ impl Generator for Tx {
     fn new_w2w_tx(
         &self,
         crypto: &dyn crypto::Provider,
-        owner: Base64,
         target: Base64,
         data: Vec<u8>,
         quantity: u64,
-        reward: u64,
+        price_terms: (u64, u64),
         last_tx: Base64,
         other_tags: Vec<Tag<Base64>>,
         auto_content_tag: bool,
     ) -> Result<Self, Error> {
-        let mut transaction = Tx {
-            owner,
-            last_tx,
-            ..Self::generate_merkle(crypto.get_hasher(), data).expect("Valid data")
-        };
+        let mut transaction = Tx::generate_merkle(crypto.get_hasher(), data).unwrap();
+        transaction.owner = crypto.keypair_modulus();
 
-        let mut tags = vec![Self::base_tag()];
+        let mut tags = vec![Tx::base_tag()];
+
+        // Get content type from [magic numbers](https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types)
+        // and include additional tags if any.
         if auto_content_tag {
             let content_type = if let Some(kind) = infer::get(&transaction.data.0) {
                 kind.mime_type()
@@ -172,17 +190,19 @@ impl Generator for Tx {
                 "application/octet-stream"
             };
 
-            tags.push(
-                Tag::<Base64>::from_utf8_strs("Content-Type", content_type)
-                    .expect("Valid tag data"),
-            )
-        };
+            tags.push(Tag::<Base64>::from_utf8_strs("Content-Type", content_type)?)
+        }
+
+        // Add other tags if provided.
         tags.extend(other_tags);
         transaction.tags = tags;
 
-        transaction.reward = reward;
-        transaction.quantity = quantity;
+        // Fetch and set last_tx if not provided (primarily for testing).
+        transaction.last_tx = last_tx;
+
+        transaction.reward = price_terms.0;
         transaction.target = target;
+        transaction.quantity = quantity;
 
         Ok(transaction)
     }
