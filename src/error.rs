@@ -22,6 +22,9 @@ pub enum Error {
     SliceError,
 
     #[error("Invalid tag encoding.")]
+    InvalidValueForTx,
+
+    #[error("Invalid tag encoding.")]
     InvalidTagEncoding,
 
     #[error("Error getting network info: {0}")]

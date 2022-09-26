@@ -1,3 +1,6 @@
+use std::str::FromStr;
+
+use num::{BigRational, Zero, BigUint, ToPrimitive};
 use serde::{ser::SerializeStruct, Deserialize, Serialize, Serializer};
 
 use crate::{
@@ -176,10 +179,14 @@ impl Generator for Tx {
         other_tags: Vec<Tag<Base64>>,
         auto_content_tag: bool,
     ) -> Result<Self, Error> {
+        if quantity <= Zero::zero() {
+            return Err(Error::InvalidValueForTx);
+        }
+
         let mut transaction = Tx::generate_merkle(crypto.get_hasher(), data).unwrap();
         transaction.owner = crypto.keypair_modulus();
 
-        let mut tags = vec![Tx::base_tag()];
+        let mut tags = vec![/* Tx::base_tag() */];
 
         // Get content type from [magic numbers](https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types)
         // and include additional tags if any.
@@ -201,8 +208,8 @@ impl Generator for Tx {
         transaction.last_tx = last_tx;
 
         transaction.reward = price_terms.0;
-        transaction.target = target;
         transaction.quantity = quantity;
+        transaction.target = target;
 
         Ok(transaction)
     }

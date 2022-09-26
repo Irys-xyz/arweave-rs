@@ -2,6 +2,7 @@ use crate::error::Error;
 
 use super::hash::Hasher;
 
+#[derive(Debug)]
 pub enum DeepHashItem {
     Blob(Vec<u8>),
     List(Vec<DeepHashItem>),
@@ -44,14 +45,17 @@ pub fn deep_hash(hasher: &dyn Hasher, deep_hash_item: DeepHashItem) -> [u8; 48] 
 }
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use crate::{
         crypto::{
             deep_hash::{deep_hash, ToItems},
-            hash::RingHasher,
+            hash::RingHasher, base64::Base64,
         },
         error::Error,
         transaction::Tx,
     };
+    use serde_json::json;
 
     #[tokio::test]
     async fn test_deep_hash() -> Result<(), Error> {
@@ -59,8 +63,10 @@ mod tests {
             format: 2,
             ..Tx::default()
         };
+        
+        dbg!(json!(&transaction));
         let hasher = RingHasher::new();
-        let deep_hash = deep_hash(&hasher, transaction.to_deep_hash_item().unwrap());
+        let actual_hash = deep_hash(&hasher, transaction.to_deep_hash_item().unwrap());
 
         let correct_hash: [u8; 48] = [
             72, 43, 204, 204, 122, 20, 48, 138, 114, 252, 43, 128, 87, 244, 105, 231, 189, 246, 94,
@@ -68,7 +74,36 @@ mod tests {
             32, 27, 222, 153, 54, 137, 100, 159, 17, 247,
         ];
 
-        assert_eq!(deep_hash, correct_hash);
+        assert_eq!(actual_hash, correct_hash);
+
+        let expected_tx = Tx {
+            format: 2,
+            id: Base64::from_str("Icwx2k4O3tZ4KcVQ77ARmLcANiCrpoeakXvaYtQsrUI").unwrap(),
+            last_tx: Base64::from_str("5jXeTrl978sxUBvODU2_18_eoXY29m8VII2ghDdP7SPBdAQMnshNkjqffZXAI9kp").unwrap(),
+            owner: Base64::from_str("pjdss8ZaDfEH6K6U7GeW2nxDqR4IP049fk1fK0lndimbMMVBdPv_hSpm8T8EtBDxrUdi1OHZfMhUixGaut-3nQ4GG9nM249oxhCtxqqNvEXrmQRGqczyLxuh-fKn9Fg--hS9UpazHpfVAFnB5aCfXoNhPuI8oByyFKMKaOVgHNqP5NBEqabiLftZD3W_lsFCPGuzr4Vp0YS7zS2hDYScC2oOMu4rGU1LcMZf39p3153Cq7bS2Xh6Y-vw5pwzFYZdjQxDn8x8BG3fJ6j8TGLXQsbKH1218_HcUJRvMwdpbUQG5nvA2GXVqLqdwp054Lzk9_B_f1lVrmOKuHjTNHq48w").unwrap(),
+            tags: vec![],
+            target: Base64::from_str("PAgdonEn9f5xd-UbYdCX40Sj28eltQVnxz6bbUijeVY").unwrap(),
+            quantity: 100000,
+            data_root: Base64::from_str("").unwrap(),
+            data: Base64([].to_vec()),
+            data_size: 0,
+            reward: 1005003731,
+            signature: Base64::from_str("kdvYjZy_gYrLuTcJwbtZsLjRsLIz1NmdqEYg-lMuX9q3eaBeB4gej0nWXQB16xtwikalnyyGagE8KM9HmItW_X9NbvRlwgF4QxVZeQKvn6hkBF-oThX57yO3MnAbo5euXgo3XJVdd8-40Yh6EwVAGJy-X80ZEBvTEvbD8zjy5YPR2YAQ9f63KtY7o5aZ-7w5prCWQNfAd_KB1E7E5EFqyD51X98a5IaacOB2wPRuTYXhDKkOg8VTx-4C6i3qrzvO_opVcitNoRMSOZLjPNPJ-xf4vh-XoCjH5kSlMWGvn3i67DPR9iX8Sdlp-t3NUsbuJMnlqBjG700HK6cZzBohXA").unwrap(),
+            chunks: vec![],
+            proofs: vec![],
+        };
+
+        let actual_hash = deep_hash(&hasher, expected_tx.to_deep_hash_item().unwrap());
+        let correct_hash: [u8; 48] = [
+            92,  69,  51, 135,  69, 123,  91, 178, 182,
+            70,  62,  91, 146,  71, 247,  59,  33, 208,
+            26, 136, 141, 219,  43,  36, 129, 117, 174,
+           201, 197, 237, 248, 151,  36,  33, 151,  26,
+           203, 201, 172, 245, 161, 182, 207,  56,  96,
+           119, 195, 102
+        ];
+
+        assert_eq!(actual_hash, correct_hash);
 
         Ok(())
     }

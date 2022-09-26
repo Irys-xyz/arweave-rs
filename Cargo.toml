@@ -19,7 +19,7 @@ futures = "0.3.24"
 infer = "0.9.0"
 jsonwebkey = { version = "0.3.4", features = [ "pkcs-convert" ] }
 lazy_static = "1.4.0"
-num-bigint = { version = "0.4.3", features = [ "serde" ] }
+num = { version = "0.4.0", features = [ "serde" ] }
 paris = "1.5.13"
 pretend = "0.3.0"
 pretend-reqwest = "0.3.0"

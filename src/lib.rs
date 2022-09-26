@@ -3,7 +3,7 @@ use std::{path::PathBuf, str::FromStr, time::Duration};
 use crypto::{base64::Base64, deep_hash::ToItems, RingProvider};
 use error::Error;
 use futures::future::try_join;
-use num_bigint::BigUint;
+use num::BigUint;
 use reqwest::header::{ACCEPT, CONTENT_TYPE};
 use serde::{Deserialize, Serialize};
 use tokio::time::sleep;
@@ -132,7 +132,7 @@ impl Arweave {
                 .unwrap()
                 .status();
             if status == reqwest::StatusCode::OK {
-                return Ok((signed_transaction.id.clone(), signed_transaction.reward));
+                return Ok((signed_transaction.id.clone(), signed_transaction.reward.clone()));
             }
             dbg!("post_transaction: {:?}", status);
             sleep(Duration::from_secs(CHUNKS_RETRY_SLEEP)).await;
