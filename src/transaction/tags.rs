@@ -42,15 +42,11 @@ impl FromUtf8Strs<Tag<String>> for Tag<String> {
 
 impl<'a> ToItems<'a, Vec<Tag<Base64>>> for Vec<Tag<Base64>> {
     fn to_deep_hash_item(&'a self) -> Result<DeepHashItem, Error> {
-        if self.len() > 0 {
-            Ok(DeepHashItem::List(
-                self.iter()
-                    .map(|t| t.to_deep_hash_item().unwrap())
-                    .collect(),
-            ))
-        } else {
-            Ok(DeepHashItem::Blob(Vec::<u8>::new()))
-        }
+        Ok(DeepHashItem::List(
+            self.iter()
+                .map(|t| t.to_deep_hash_item().unwrap())
+                .collect(),
+        ))
     }
 }
 

@@ -132,7 +132,10 @@ impl Arweave {
                 .unwrap()
                 .status();
             if status == reqwest::StatusCode::OK {
-                return Ok((signed_transaction.id.clone(), signed_transaction.reward.clone()));
+                return Ok((
+                    signed_transaction.id.clone(),
+                    signed_transaction.reward.clone(),
+                ));
             }
             dbg!("post_transaction: {:?}", status);
             sleep(Duration::from_secs(CHUNKS_RETRY_SLEEP)).await;

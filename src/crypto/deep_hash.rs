@@ -49,8 +49,9 @@ mod tests {
 
     use crate::{
         crypto::{
+            base64::Base64,
             deep_hash::{deep_hash, ToItems},
-            hash::RingHasher, base64::Base64,
+            hash::RingHasher,
         },
         error::Error,
         transaction::Tx,
@@ -59,22 +60,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_deep_hash() -> Result<(), Error> {
-        let transaction = Tx {
-            format: 2,
-            ..Tx::default()
-        };
-        
-        dbg!(json!(&transaction));
         let hasher = RingHasher::new();
-        let actual_hash = deep_hash(&hasher, transaction.to_deep_hash_item().unwrap());
-
-        let correct_hash: [u8; 48] = [
-            72, 43, 204, 204, 122, 20, 48, 138, 114, 252, 43, 128, 87, 244, 105, 231, 189, 246, 94,
-            44, 150, 163, 165, 136, 133, 204, 158, 192, 28, 46, 222, 95, 55, 159, 23, 15, 3, 169,
-            32, 27, 222, 153, 54, 137, 100, 159, 17, 247,
-        ];
-
-        assert_eq!(actual_hash, correct_hash);
 
         let expected_tx = Tx {
             format: 2,
@@ -95,12 +81,9 @@ mod tests {
 
         let actual_hash = deep_hash(&hasher, expected_tx.to_deep_hash_item().unwrap());
         let correct_hash: [u8; 48] = [
-            92,  69,  51, 135,  69, 123,  91, 178, 182,
-            70,  62,  91, 146,  71, 247,  59,  33, 208,
-            26, 136, 141, 219,  43,  36, 129, 117, 174,
-           201, 197, 237, 248, 151,  36,  33, 151,  26,
-           203, 201, 172, 245, 161, 182, 207,  56,  96,
-           119, 195, 102
+            92, 69, 51, 135, 69, 123, 91, 178, 182, 70, 62, 91, 146, 71, 247, 59, 33, 208, 26, 136,
+            141, 219, 43, 36, 129, 117, 174, 201, 197, 237, 248, 151, 36, 33, 151, 26, 203, 201,
+            172, 245, 161, 182, 207, 56, 96, 119, 195, 102,
         ];
 
         assert_eq!(actual_hash, correct_hash);

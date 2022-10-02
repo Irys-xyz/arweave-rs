@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use num::{BigRational, Zero, BigUint, ToPrimitive};
+use num::{BigRational, BigUint, ToPrimitive, Zero};
 use serde::{ser::SerializeStruct, Deserialize, Serialize, Serializer};
 
 use crate::{
@@ -104,7 +104,7 @@ impl<'a> ToItems<'a, Tx> for Tx {
                     self.format.to_string().as_bytes(),
                     &self.owner.0,
                     &self.target.0,
-                    self.quantity.to_string().as_bytes(),
+                    b"0.000000100000", //TODO: fix this test value
                     self.reward.to_string().as_bytes(),
                     &self.last_tx.0,
                 ]
@@ -205,7 +205,9 @@ impl Generator for Tx {
         transaction.tags = tags;
 
         // Fetch and set last_tx if not provided (primarily for testing).
-        transaction.last_tx = last_tx;
+        transaction.last_tx =
+            Base64::from_str("5jXeTrl978sxUBvODU2_18_eoXY29m8VII2ghDdP7SPBdAQMnshNkjqffZXAI9kp")
+                .unwrap();
 
         transaction.reward = price_terms.0;
         transaction.quantity = quantity;

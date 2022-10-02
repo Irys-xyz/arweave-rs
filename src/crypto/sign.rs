@@ -32,7 +32,6 @@ impl Default for Signer {
 
 impl Signer {
     pub async fn from_keypair_path(keypair_path: PathBuf) -> Result<Signer, Error> {
-        dbg!(&keypair_path);
         let data = fs::read_to_string(keypair_path).await.unwrap();
 
         let jwk_parsed: JsonWebKey = data.parse().unwrap();
