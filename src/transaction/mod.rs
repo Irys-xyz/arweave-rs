@@ -11,6 +11,7 @@ use crate::{
         hash::Hasher,
         merkle::{generate_data_root, generate_leaves, resolve_proofs, Node, Proof},
     },
+    currency::Currency,
     error::Error,
     transaction::tags::Tag,
     VERSION,
@@ -29,7 +30,7 @@ pub struct Tx {
     pub owner: Base64,
     pub tags: Vec<Tag<Base64>>,
     pub target: Base64,
-    pub quantity: u64,
+    pub quantity: Currency,
     pub data_root: Base64,
     pub data: Base64,
     pub data_size: u64,
@@ -52,7 +53,7 @@ impl Serialize for Tx {
         s.serialize_field("target", &self.target.to_string())?;
         s.serialize_field("data_root", &self.data_root.to_string())?;
         s.serialize_field("data_size", &self.data_size.to_string())?;
-        s.serialize_field("quantity", &self.quantity.to_string())?;
+        s.serialize_field("quantity", &self.quantity.to_formatted_string())?;
         s.serialize_field("reward", &self.reward.to_string())?;
         s.serialize_field("last_tx", &self.last_tx.to_string())?;
         s.serialize_field("tags", &self.tags)?;
@@ -82,7 +83,7 @@ impl<'a> ToItems<'a, Tx> for Tx {
     fn to_deep_hash_item(&'a self) -> Result<DeepHashItem, Error> {
         match &self.format {
             1 => {
-                let quantity = Base64::from_utf8_str(&self.quantity.to_string()).unwrap();
+                let quantity = Base64::from_utf8_str(&self.quantity.to_formatted_string()).unwrap();
                 let reward = Base64::from_utf8_str(&self.reward.to_string()).unwrap();
                 let mut children: Vec<DeepHashItem> = vec![
                     &self.owner,
@@ -104,7 +105,7 @@ impl<'a> ToItems<'a, Tx> for Tx {
                     self.format.to_string().as_bytes(),
                     &self.owner.0,
                     &self.target.0,
-                    b"0.000000100000", //TODO: fix this test value
+                    self.quantity.to_formatted_string().as_bytes(),
                     self.reward.to_string().as_bytes(),
                     &self.last_tx.0,
                 ]
@@ -210,7 +211,7 @@ impl Generator for Tx {
                 .unwrap();
 
         transaction.reward = price_terms.0;
-        transaction.quantity = quantity;
+        transaction.quantity = Currency::from(quantity);
         transaction.target = target;
 
         Ok(transaction)

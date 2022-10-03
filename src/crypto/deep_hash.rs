@@ -53,6 +53,7 @@ mod tests {
             deep_hash::{deep_hash, ToItems},
             hash::RingHasher,
         },
+        currency::Currency,
         error::Error,
         transaction::Tx,
     };
@@ -69,7 +70,7 @@ mod tests {
             owner: Base64::from_str("pjdss8ZaDfEH6K6U7GeW2nxDqR4IP049fk1fK0lndimbMMVBdPv_hSpm8T8EtBDxrUdi1OHZfMhUixGaut-3nQ4GG9nM249oxhCtxqqNvEXrmQRGqczyLxuh-fKn9Fg--hS9UpazHpfVAFnB5aCfXoNhPuI8oByyFKMKaOVgHNqP5NBEqabiLftZD3W_lsFCPGuzr4Vp0YS7zS2hDYScC2oOMu4rGU1LcMZf39p3153Cq7bS2Xh6Y-vw5pwzFYZdjQxDn8x8BG3fJ6j8TGLXQsbKH1218_HcUJRvMwdpbUQG5nvA2GXVqLqdwp054Lzk9_B_f1lVrmOKuHjTNHq48w").unwrap(),
             tags: vec![],
             target: Base64::from_str("PAgdonEn9f5xd-UbYdCX40Sj28eltQVnxz6bbUijeVY").unwrap(),
-            quantity: 100000,
+            quantity: Currency::from(100000),
             data_root: Base64::from_str("").unwrap(),
             data: Base64([].to_vec()),
             data_size: 0,

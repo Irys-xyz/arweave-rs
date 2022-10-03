@@ -11,15 +11,13 @@ use transaction::{tags::Tag, Tx};
 
 pub mod client;
 pub mod crypto;
+pub mod currency;
 pub mod error;
 pub mod network;
 pub mod transaction;
 pub mod wallet;
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
-
-/// Winstons are a sub unit of the native Arweave network token, AR. There are 10<sup>12</sup> Winstons per AR.
-pub const WINSTONS_PER_AR: u64 = 1_000_000_000_000;
 
 /// Block size used for pricing calculations = 256 KB
 pub const BLOCK_SIZE: u64 = 1024 * 256;
