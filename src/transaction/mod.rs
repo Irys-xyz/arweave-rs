@@ -58,7 +58,7 @@ impl Serialize for Tx {
         s.serialize_field("last_tx", &self.last_tx.to_string())?;
         s.serialize_field("tags", &self.tags)?;
         s.serialize_field("id", &self.id.to_string())?;
-        s.serialize_field("data", &self.data.to_string())?;
+        s.serialize_field("data", &self.data.0)?;
         s.serialize_field("signature", &self.signature.to_string())?;
 
         s.end()
@@ -187,7 +187,7 @@ impl Generator for Tx {
         let mut transaction = Tx::generate_merkle(crypto.get_hasher(), data).unwrap();
         transaction.owner = crypto.keypair_modulus();
 
-        let mut tags = vec![/* Tx::base_tag() */];
+        let mut tags = vec![Tx::base_tag()];
 
         // Get content type from [magic numbers](https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types)
         // and include additional tags if any.
@@ -206,9 +206,7 @@ impl Generator for Tx {
         transaction.tags = tags;
 
         // Fetch and set last_tx if not provided (primarily for testing).
-        transaction.last_tx =
-            Base64::from_str("5jXeTrl978sxUBvODU2_18_eoXY29m8VII2ghDdP7SPBdAQMnshNkjqffZXAI9kp")
-                .unwrap();
+        transaction.last_tx = last_tx;
 
         transaction.reward = price_terms.0;
         transaction.quantity = Currency::from(quantity);

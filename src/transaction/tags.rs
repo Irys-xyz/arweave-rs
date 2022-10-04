@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{ser::SerializeStruct, Deserialize, Serialize, Serializer};
 
 use crate::{
     crypto::{base64::Base64, deep_hash::DeepHashItem},
@@ -8,7 +8,7 @@ use crate::{
 use super::ToItems;
 
 /// Transaction tag.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Deserialize, Debug, Clone, PartialEq)]
 pub struct Tag<T> {
     pub name: T,
     pub value: T,
@@ -56,5 +56,18 @@ impl<'a> ToItems<'a, Tag<Base64>> for Tag<Base64> {
             DeepHashItem::Blob(self.name.0.to_vec()),
             DeepHashItem::Blob(self.value.0.to_vec()),
         ]))
+    }
+}
+
+impl Serialize for Tag<Base64> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut s = serializer.serialize_struct("Tag", 2)?;
+        s.serialize_field("name", &self.name.to_utf8_string().unwrap())?;
+        s.serialize_field("value", &self.value.to_utf8_string().unwrap())?;
+
+        s.end()
     }
 }

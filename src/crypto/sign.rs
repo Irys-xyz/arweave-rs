@@ -68,10 +68,14 @@ impl Signer {
     }
 
     pub fn sign(&self, message: &[u8]) -> Result<Vec<u8>, Error> {
-        let rng = rand::SystemRandom::new();
         let mut signature = vec![0; self.keypair.public_modulus_len()];
         self.keypair
-            .sign(&signature::RSA_PSS_SHA256, &rng, message, &mut signature)
+            .sign(
+                &signature::RSA_PSS_SHA256,
+                &self.sr,
+                message,
+                &mut signature,
+            )
             .unwrap();
         Ok(signature)
     }
