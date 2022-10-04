@@ -22,7 +22,7 @@ pub struct Signer {
 
 impl Default for Signer {
     fn default() -> Self {
-        let jwk_parsed = load_from_file(".wallet.json").expect("Valid wallet file");
+        let jwk_parsed = load_from_file("res/test_wallet.json").expect("Valid wallet file");
         Self {
             keypair: signature::RsaKeyPair::from_pkcs8(&jwk_parsed.key.as_ref().to_der()).unwrap(),
             sr: rand::SystemRandom::new(),
@@ -97,14 +97,22 @@ impl Signer {
 
 #[cfg(test)]
 mod tests {
-    use crate::crypto::sign::Signer;
+    use crate::{crypto::sign::Signer, error};
 
     #[test]
     fn test_default_keypair() {
         let provider = Signer::default();
         assert_eq!(
             provider.wallet_address().unwrap().to_string(),
-            "MKp3hwQJrL8gVIdOTkoZw-dOnALh4UiRKrA8vyTcfH8"
+            "ggHWyKn0I_CTtsyyt2OR85sPYz9OvKLd9DYIvRQ2ET4"
         );
+    }
+
+    #[test]
+    fn test_sign_verify() -> Result<(), error::Error> {
+        let message = b"hello";
+        let provider = Signer::default();
+        let signature = provider.sign(b"hello").unwrap();
+        provider.verify(&signature, message)
     }
 }

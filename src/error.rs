@@ -44,4 +44,10 @@ pub enum Error {
 
     #[error("Error getting wallet: {0}")]
     WalletError(String),
+
+    #[error("Invalid signature")]
+    InvalidSignature,
+
+    #[error("No signature present")]
+    NoSignaturePresent,
 }

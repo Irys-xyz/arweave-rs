@@ -101,12 +101,27 @@ impl Arweave {
     /// Gets deep hash, signs and sets signature and id.
     pub fn sign_transaction(&self, mut transaction: Tx) -> Result<Tx, Error> {
         let deep_hash_item = transaction.to_deep_hash_item().unwrap();
-        let deep_hash = self.crypto.deep_hash(deep_hash_item);
-        let signature = self.crypto.sign(&deep_hash);
+        let signature_data = self.crypto.deep_hash(deep_hash_item);
+        let signature = self.crypto.sign(&signature_data);
         let id = self.crypto.hash_sha256(&signature);
         transaction.signature = Base64(signature);
         transaction.id = Base64(id.to_vec());
         Ok(transaction)
+    }
+
+    pub fn verify_transaction(&self, transaction: &Tx) -> Result<(), Error> {
+        if transaction.signature.is_empty() {
+            return Err(Error::NoSignaturePresent);
+        }
+
+        let deep_hash_item = transaction.to_deep_hash_item().unwrap();
+        let data_to_sign = self.crypto.deep_hash(deep_hash_item);
+        let signature = &transaction.signature.0;
+        if self.crypto.verify(signature, &data_to_sign) {
+            Ok(())
+        } else {
+            Err(Error::InvalidSignature)
+        }
     }
 
     pub async fn post_transaction(&self, signed_transaction: &Tx) -> Result<(Base64, u64), Error> {
@@ -120,22 +135,22 @@ impl Arweave {
         let client = reqwest::Client::new();
 
         while (retries < CHUNKS_RETRIES) & (status != reqwest::StatusCode::OK) {
-            status = client
+            let res = client
                 .post(url.clone())
                 .json(&signed_transaction)
                 .header(&ACCEPT, "application/json")
                 .header(&CONTENT_TYPE, "application/json")
                 .send()
                 .await
-                .unwrap()
-                .status();
+                .unwrap();
+            status = res.status();
             if status == reqwest::StatusCode::OK {
                 return Ok((
                     signed_transaction.id.clone(),
                     signed_transaction.reward.clone(),
                 ));
             }
-            dbg!("post_transaction: {:?}", status);
+            dbg!(res.status());
             sleep(Duration::from_secs(CHUNKS_RETRY_SLEEP)).await;
             retries += 1;
         }

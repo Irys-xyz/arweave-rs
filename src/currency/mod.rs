@@ -14,7 +14,6 @@ impl From<u64> for Currency {
         let s = u.to_string();
         let mut arweave: u64 = 0;
         let mut winston: u64 = 0;
-        dbg!(s.len());
         if s.len() <= 12 {
             winston = u as u64;
         } else {

@@ -7,9 +7,10 @@ use url::Url;
 
 #[tokio::main]
 async fn main() {
-    let path = PathBuf::from_str("res/test_wallet.json").unwrap();
+    let path = PathBuf::from_str(".wallet.json").unwrap();
     let arweave =
-        Arweave::from_keypair_path(path, Url::from_str("https://arweave.net").unwrap()).unwrap();
+        Arweave::from_keypair_path(path, Url::from_str("https://node-6.arweave.net").unwrap())
+            .unwrap();
 
     let price_terms = arweave.get_price_terms(1.0).await.unwrap();
 
@@ -18,16 +19,18 @@ async fn main() {
             Base64::from_str("PAgdonEn9f5xd-UbYdCX40Sj28eltQVnxz6bbUijeVY").unwrap(),
             vec![],
             100000,
-            (1005003731, 0),
-            false,
+            price_terms,
+            true,
         )
         .await
         .unwrap();
 
     let sig_tx = arweave.sign_transaction(tx).unwrap();
+    let ok = arweave.verify_transaction(&sig_tx);
+    dbg!(ok);
     dbg!(json!(&sig_tx));
 
     let res = arweave.post_transaction(&sig_tx).await;
 
-    println!("{:?}", res);
+    println!("{:?}", res.unwrap());
 }

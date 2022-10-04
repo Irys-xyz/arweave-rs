@@ -16,12 +16,12 @@ pub mod sign;
 pub trait Provider {
     fn deep_hash(&self, deep_hash_item: DeepHashItem) -> [u8; 48];
     fn sign(&self, message: &[u8]) -> Vec<u8>;
+    fn verify(&self, signature: &[u8], message: &[u8]) -> bool;
     fn hash_sha256(&self, message: &[u8]) -> [u8; 32];
     fn keypair_modulus(&self) -> Base64;
     fn get_hasher(&self) -> &dyn Hasher;
 }
 
-//TODO: implement Signer & Verifier using Ring only
 pub struct RingProvider {
     pub signer: Box<Signer>,
     pub hasher: Box<RingHasher>,
@@ -63,6 +63,13 @@ impl Provider for RingProvider {
 
     fn sign(&self, message: &[u8]) -> Vec<u8> {
         self.signer.sign(message).expect("Valid message").to_vec()
+    }
+
+    fn verify(&self, signature: &[u8], message: &[u8]) -> bool {
+        match self.signer.verify(signature, message) {
+            Ok(_) => true,
+            Err(_) => false,
+        }
     }
 
     fn hash_sha256(&self, message: &[u8]) -> [u8; 32] {
