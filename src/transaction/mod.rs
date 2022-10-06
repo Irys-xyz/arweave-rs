@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use num::{BigRational, BigUint, ToPrimitive, Zero};
+use num::Zero;
 use serde::{ser::SerializeStruct, Deserialize, Serialize, Serializer};
 
 use crate::{
@@ -17,10 +17,27 @@ use crate::{
     VERSION,
 };
 
-use self::tags::FromUtf8Strs;
+use self::{generator::Generator, tags::FromUtf8Strs};
 
+pub mod generator;
+pub mod parser;
 pub mod tags;
 
+#[derive(Deserialize, Debug, Default, PartialEq)]
+struct JsonTx {
+    pub format: u8,
+    pub id: Base64,
+    pub last_tx: Base64,
+    pub owner: Base64,
+    pub tags: Vec<Tag<Base64>>,
+    pub target: Base64,
+    pub quantity: String,
+    pub data_root: Base64,
+    pub data: Base64,
+    pub data_size: String,
+    pub reward: String,
+    pub signature: Base64,
+}
 #[derive(Deserialize, Debug, Default, PartialEq)]
 pub struct Tx {
     /* Fields required for signing */
@@ -49,41 +66,27 @@ impl Serialize for Tx {
     {
         let mut s = serializer.serialize_struct("Tx", 12)?;
         s.serialize_field("format", &self.format)?;
-        s.serialize_field("owner", &self.owner.to_string())?;
-        s.serialize_field("target", &self.target.to_string())?;
-        s.serialize_field("data_root", &self.data_root.to_string())?;
-        s.serialize_field("data_size", &self.data_size.to_string())?;
-        s.serialize_field("quantity", &self.quantity.to_formatted_string())?;
-        s.serialize_field("reward", &self.reward.to_string())?;
-        s.serialize_field("last_tx", &self.last_tx.to_string())?;
-        s.serialize_field("tags", &self.tags)?;
         s.serialize_field("id", &self.id.to_string())?;
-        s.serialize_field("data", &self.data.0)?;
+        s.serialize_field("last_tx", &self.last_tx.to_string())?;
+        s.serialize_field("owner", &self.owner.to_string())?;
+        s.serialize_field("tags", &self.tags)?;
+        s.serialize_field("target", &self.target.to_string())?;
+        s.serialize_field("quantity", &self.quantity.to_json_string())?;
+        s.serialize_field("data", &self.data.to_string())?;
+        s.serialize_field("data_size", &self.data_size.to_string())?;
+        s.serialize_field("data_root", &self.data_root.to_string())?;
+        s.serialize_field("reward", &self.reward.to_string())?;
         s.serialize_field("signature", &self.signature.to_string())?;
 
         s.end()
     }
 }
 
-pub trait Generator {
-    fn new_w2w_tx(
-        &self,
-        crypto: &dyn crypto::Provider,
-        target: Base64,
-        data: Vec<u8>,
-        quantity: u64,
-        price_terms: (u64, u64),
-        last_tx: Base64,
-        other_tags: Vec<Tag<Base64>>,
-        auto_content_tag: bool,
-    ) -> Result<Tx, Error>;
-}
-
 impl<'a> ToItems<'a, Tx> for Tx {
     fn to_deep_hash_item(&'a self) -> Result<DeepHashItem, Error> {
         match &self.format {
             1 => {
-                let quantity = Base64::from_utf8_str(&self.quantity.to_formatted_string()).unwrap();
+                let quantity = Base64::from_utf8_str(&self.quantity.to_json_string()).unwrap();
                 let reward = Base64::from_utf8_str(&self.reward.to_string()).unwrap();
                 let mut children: Vec<DeepHashItem> = vec![
                     &self.owner,
@@ -105,7 +108,7 @@ impl<'a> ToItems<'a, Tx> for Tx {
                     self.format.to_string().as_bytes(),
                     &self.owner.0,
                     &self.target.0,
-                    self.quantity.to_formatted_string().as_bytes(),
+                    self.quantity.to_json_string().as_bytes(),
                     self.reward.to_string().as_bytes(),
                     &self.last_tx.0,
                 ]
@@ -175,7 +178,7 @@ impl Generator for Tx {
         target: Base64,
         data: Vec<u8>,
         quantity: u64,
-        price_terms: (u64, u64),
+        fee: u64,
         last_tx: Base64,
         other_tags: Vec<Tag<Base64>>,
         auto_content_tag: bool,
@@ -208,7 +211,7 @@ impl Generator for Tx {
         // Fetch and set last_tx if not provided (primarily for testing).
         transaction.last_tx = last_tx;
 
-        transaction.reward = price_terms.0;
+        transaction.reward = fee;
         transaction.quantity = Currency::from(quantity);
         transaction.target = target;
 

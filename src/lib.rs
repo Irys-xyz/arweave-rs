@@ -1,11 +1,10 @@
-use std::{path::PathBuf, str::FromStr, time::Duration};
+use std::{fs::File, path::PathBuf, str::FromStr, time::Duration};
 
 use crypto::{base64::Base64, deep_hash::ToItems, RingProvider};
 use error::Error;
-use futures::future::try_join;
-use num::BigUint;
 use reqwest::header::{ACCEPT, CONTENT_TYPE};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use tokio::time::sleep;
 use transaction::{tags::Tag, Tx};
 
@@ -50,7 +49,7 @@ pub struct Arweave {
     units: String,
     pub base_url: url::Url,
     pub crypto: Box<dyn crypto::Provider>,
-    tx_generator: Box<dyn transaction::Generator>,
+    tx_generator: Box<dyn transaction::generator::Generator>,
 }
 
 impl Default for Arweave {
@@ -82,7 +81,7 @@ impl Arweave {
         target: Base64,
         other_tags: Vec<Tag<Base64>>,
         quantity: u64,
-        price_terms: (u64, u64),
+        fee: u64,
         auto_content_tag: bool,
     ) -> Result<Tx, Error> {
         let last_tx = self.get_last_tx().await;
@@ -91,7 +90,7 @@ impl Arweave {
             target,
             vec![],
             quantity,
-            price_terms,
+            fee,
             last_tx,
             other_tags,
             auto_content_tag,
@@ -111,13 +110,14 @@ impl Arweave {
 
     pub fn verify_transaction(&self, transaction: &Tx) -> Result<(), Error> {
         if transaction.signature.is_empty() {
-            return Err(Error::NoSignaturePresent);
+            return Err(Error::UnsignedTransaction);
         }
 
         let deep_hash_item = transaction.to_deep_hash_item().unwrap();
         let data_to_sign = self.crypto.deep_hash(deep_hash_item);
-        let signature = &transaction.signature.0;
-        if self.crypto.verify(signature, &data_to_sign) {
+        let signature = &transaction.signature.to_string();
+        let sig_bytes = signature.as_bytes();
+        if self.crypto.verify(sig_bytes, &data_to_sign) {
             Ok(())
         } else {
             Err(Error::InvalidSignature)
@@ -126,15 +126,17 @@ impl Arweave {
 
     pub async fn post_transaction(&self, signed_transaction: &Tx) -> Result<(Base64, u64), Error> {
         if signed_transaction.id.0.is_empty() {
-            return Err(Error::UnsignedTransaction);
+            return Err(error::Error::UnsignedTransaction.into());
         }
 
         let mut retries = 0;
         let mut status = reqwest::StatusCode::NOT_FOUND;
-        let url = self.base_url.join("tx").expect("Valid url joining");
+        let url = self.base_url.join("tx").unwrap();
         let client = reqwest::Client::new();
 
         while (retries < CHUNKS_RETRIES) & (status != reqwest::StatusCode::OK) {
+            let tx_body = json!(&signed_transaction);
+
             let res = client
                 .post(url.clone())
                 .json(&signed_transaction)
@@ -142,15 +144,11 @@ impl Arweave {
                 .header(&CONTENT_TYPE, "application/json")
                 .send()
                 .await
-                .unwrap();
+                .expect("Could not post transaction");
             status = res.status();
             if status == reqwest::StatusCode::OK {
-                return Ok((
-                    signed_transaction.id.clone(),
-                    signed_transaction.reward.clone(),
-                ));
+                return Ok((signed_transaction.id.clone(), signed_transaction.reward));
             }
-            dbg!(res.status());
             sleep(Duration::from_secs(CHUNKS_RETRY_SLEEP)).await;
             retries += 1;
         }
@@ -169,12 +167,10 @@ impl Arweave {
 
     /// Returns price of uploading data to the network in winstons and USD per AR and USD per SOL
     /// as a BigUint with two decimals.
-    pub async fn get_price(&self, bytes: &u64) -> Result<(BigUint, BigUint), Error> {
+    pub async fn get_fee(&self, target: Base64) -> Result<u64, Error> {
         let url = self
             .base_url
-            .join("price/")
-            .unwrap()
-            .join(&bytes.to_string())
+            .join(&format!("price/0/{}", target.to_string()))
             .unwrap();
         let winstons_per_bytes = reqwest::get(url)
             .await
@@ -182,31 +178,33 @@ impl Arweave {
             .json::<u64>()
             .await
             .unwrap();
-        let winstons_per_bytes = BigUint::from(winstons_per_bytes);
 
-        let oracle_url =
-            "https://api.coingecko.com/api/v3/simple/price?ids=arweave&vs_currencies=usd";
-        let prices = reqwest::get(oracle_url)
-            .await
-            .map_err(|e| Error::OracleGetPriceError(e.to_string()))?
-            .json::<OraclePrice>()
-            .await
-            .unwrap();
-
-        let usd_per_ar: BigUint = BigUint::from((prices.arweave.usd * 100.0).floor() as u32);
-
-        Ok((winstons_per_bytes, usd_per_ar))
+        Ok(winstons_per_bytes)
     }
+}
 
-    /// Gets base and incremental prices for a 256 KB block of data.
-    pub async fn get_price_terms(&self, reward_mult: f32) -> Result<(u64, u64), Error> {
-        let (prices1, prices2) = try_join(
-            self.get_price(&(256 * 1024)),
-            self.get_price(&(256 * 1024 * 2)),
-        )
-        .await?;
-        let base = (prices1.0.to_u64_digits()[0] as f32 * reward_mult) as u64;
-        let incremental = (prices2.0.to_u64_digits()[0] as f32 * reward_mult) as u64 - &base;
-        Ok((base, incremental))
+#[cfg(test)]
+mod tests {
+    use std::{fs::File, io::Read, path::PathBuf, str::FromStr};
+
+    use pretend::Url;
+
+    use crate::{error::Error, transaction::Tx, Arweave};
+
+    #[test]
+    pub fn should_parse_and_verify_valid_tx() -> Result<(), Error> {
+        let mut file = File::open("res/sample_tx.json").unwrap();
+        let mut data = String::new();
+        file.read_to_string(&mut data).unwrap();
+        let tx = Tx::from_str(&data).unwrap();
+
+        let path = PathBuf::from_str("res/test_wallet.json").unwrap();
+        let arweave =
+            Arweave::from_keypair_path(path, Url::from_str("https://arweave.net").unwrap())
+                .unwrap();
+
+        //TODO: verification
+        //arweave.verify_transaction(&tx)
+        Ok(())
     }
 }

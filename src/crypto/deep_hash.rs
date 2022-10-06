@@ -45,74 +45,33 @@ pub fn deep_hash(hasher: &dyn Hasher, deep_hash_item: DeepHashItem) -> [u8; 48] 
 }
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
+    use std::{fs::File, io::Read, str::FromStr};
 
     use crate::{
         crypto::{
-            base64::Base64,
             deep_hash::{deep_hash, ToItems},
             hash::RingHasher,
         },
-        currency::Currency,
         error::Error,
-        transaction::{tags::Tag, Tx},
+        transaction::Tx,
     };
-    use serde_json::json;
 
     #[tokio::test]
     async fn test_deep_hash() -> Result<(), Error> {
         let hasher = RingHasher::new();
 
-        let expected_tx = Tx {
-            format: 2,
-            id: Base64::from_str("").unwrap(),
-            last_tx: Base64::from_str("5jXeTrl978sxUBvODU2_18_eoXY29m8VII2ghDdP7SPBdAQMnshNkjqffZXAI9kp").unwrap(),
-            owner: Base64::from_str("pjdss8ZaDfEH6K6U7GeW2nxDqR4IP049fk1fK0lndimbMMVBdPv_hSpm8T8EtBDxrUdi1OHZfMhUixGaut-3nQ4GG9nM249oxhCtxqqNvEXrmQRGqczyLxuh-fKn9Fg--hS9UpazHpfVAFnB5aCfXoNhPuI8oByyFKMKaOVgHNqP5NBEqabiLftZD3W_lsFCPGuzr4Vp0YS7zS2hDYScC2oOMu4rGU1LcMZf39p3153Cq7bS2Xh6Y-vw5pwzFYZdjQxDn8x8BG3fJ6j8TGLXQsbKH1218_HcUJRvMwdpbUQG5nvA2GXVqLqdwp054Lzk9_B_f1lVrmOKuHjTNHq48w").unwrap(),
-            tags: vec![],
-            target: Base64::from_str("PAgdonEn9f5xd-UbYdCX40Sj28eltQVnxz6bbUijeVY").unwrap(),
-            quantity: Currency::from(100000),
-            data_root: Base64::from_str("").unwrap(),
-            data: Base64([].to_vec()),
-            data_size: 0,
-            reward: 1005003731,
-            signature: Base64::from_str("").unwrap(),
-            chunks: vec![],
-            proofs: vec![],
-        };
+        let mut file = File::open("res/sample_tx.json").unwrap();
+        let mut data = String::new();
+        file.read_to_string(&mut data).unwrap();
 
-        let actual_hash = deep_hash(&hasher, expected_tx.to_deep_hash_item().unwrap());
+        let tx = Tx::from_str(&data).unwrap();
+
+        let actual_hash = deep_hash(&hasher, tx.to_deep_hash_item().unwrap());
         let correct_hash: [u8; 48] = [
-            92, 69, 51, 135, 69, 123, 91, 178, 182, 70, 62, 91, 146, 71, 247, 59, 33, 208, 26, 136,
-            141, 219, 43, 36, 129, 117, 174, 201, 197, 237, 248, 151, 36, 33, 151, 26, 203, 201,
-            172, 245, 161, 182, 207, 56, 96, 119, 195, 102,
+            74, 15, 74, 255, 248, 205, 47, 229, 107, 195, 69, 76, 215, 249, 34, 186, 197, 31, 178,
+            163, 72, 54, 78, 179, 19, 178, 1, 132, 183, 231, 131, 213, 146, 203, 6, 99, 106, 231,
+            215, 199, 181, 171, 52, 255, 205, 55, 203, 117,
         ];
-
-        assert_eq!(actual_hash, correct_hash);
-
-        let expected_tx = Tx {
-            format: 2,
-            id: Base64::from_str("").unwrap(),
-            last_tx: Base64::from_str("5jXeTrl978sxUBvODU2_18_eoXY29m8VII2ghDdP7SPBdAQMnshNkjqffZXAI9kp").unwrap(),
-            owner: Base64::from_str("pjdss8ZaDfEH6K6U7GeW2nxDqR4IP049fk1fK0lndimbMMVBdPv_hSpm8T8EtBDxrUdi1OHZfMhUixGaut-3nQ4GG9nM249oxhCtxqqNvEXrmQRGqczyLxuh-fKn9Fg--hS9UpazHpfVAFnB5aCfXoNhPuI8oByyFKMKaOVgHNqP5NBEqabiLftZD3W_lsFCPGuzr4Vp0YS7zS2hDYScC2oOMu4rGU1LcMZf39p3153Cq7bS2Xh6Y-vw5pwzFYZdjQxDn8x8BG3fJ6j8TGLXQsbKH1218_HcUJRvMwdpbUQG5nvA2GXVqLqdwp054Lzk9_B_f1lVrmOKuHjTNHq48w").unwrap(),
-            tags: vec![Tag{ name: Base64::from_str("test").unwrap(), value: Base64::from_str("test").unwrap() }],
-            target: Base64::from_str("PAgdonEn9f5xd-UbYdCX40Sj28eltQVnxz6bbUijeVY").unwrap(),
-            quantity: Currency::from(100000),
-            data_root: Base64::from_str("").unwrap(),
-            data: Base64([].to_vec()),
-            data_size: 0,
-            reward: 1005003731,
-            signature: Base64::from_str("").unwrap(),
-            chunks: vec![],
-            proofs: vec![],
-        };
-
-        let actual_hash = deep_hash(&hasher, expected_tx.to_deep_hash_item().unwrap());
-        let correct_hash: [u8; 48] = [
-            56, 246, 229, 227, 137, 132, 40, 229, 122, 206, 40, 145, 17, 38, 115, 217, 243, 176,
-            91, 223, 98, 196, 117, 186, 162, 134, 48, 193, 13, 112, 221, 167, 125, 158, 142, 40,
-            203, 57, 252, 123, 90, 133, 221, 238, 5, 136, 56, 1,
-        ];
-
         assert_eq!(actual_hash, correct_hash);
 
         Ok(())

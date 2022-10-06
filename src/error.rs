@@ -47,7 +47,4 @@ pub enum Error {
 
     #[error("Invalid signature")]
     InvalidSignature,
-
-    #[error("No signature present")]
-    NoSignaturePresent,
 }

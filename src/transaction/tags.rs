@@ -65,8 +65,8 @@ impl Serialize for Tag<Base64> {
         S: Serializer,
     {
         let mut s = serializer.serialize_struct("Tag", 2)?;
-        s.serialize_field("name", &self.name.to_utf8_string().unwrap())?;
-        s.serialize_field("value", &self.value.to_utf8_string().unwrap())?;
+        s.serialize_field("name", &self.name.to_string())?;
+        s.serialize_field("value", &self.value.to_string())?;
 
         s.end()
     }

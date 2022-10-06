@@ -85,8 +85,10 @@ impl Signer {
             &signature::RSA_PSS_2048_8192_SHA256,
             self.keypair.public_key().as_ref(),
         );
-        public_key.verify(message, signature).unwrap();
-        Ok(())
+        match public_key.verify(message, signature) {
+            Ok(_) => Ok(()),
+            Err(_) => Err(Error::InvalidSignature),
+        }
     }
 
     pub fn fill_rand(&self, dest: &mut [u8]) -> Result<(), Error> {
