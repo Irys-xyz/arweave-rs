@@ -51,6 +51,10 @@ impl Signer {
         })
     }
 
+    pub fn public_key(&self) -> &[u8] {
+        self.keypair.public_key().as_ref()
+    }
+
     pub fn keypair_modulus(&self) -> Result<Base64, Error> {
         let modulus = self
             .keypair
@@ -80,11 +84,9 @@ impl Signer {
         Ok(signature)
     }
 
-    pub fn verify(&self, signature: &[u8], message: &[u8]) -> Result<(), Error> {
-        let public_key = signature::UnparsedPublicKey::new(
-            &signature::RSA_PSS_2048_8192_SHA256,
-            self.keypair.public_key().as_ref(),
-        );
+    pub fn verify(&self, pubk: &[u8], signature: &[u8], message: &[u8]) -> Result<(), Error> {
+        let public_key =
+            signature::UnparsedPublicKey::new(&signature::RSA_PSS_2048_8192_SHA256, pubk);
         match public_key.verify(message, signature) {
             Ok(_) => Ok(()),
             Err(_) => Err(Error::InvalidSignature),
@@ -115,6 +117,7 @@ mod tests {
         let message = b"hello";
         let provider = Signer::default();
         let signature = provider.sign(b"hello").unwrap();
-        provider.verify(&signature, message)
+        let pubk = provider.public_key();
+        provider.verify(pubk, &signature, message)
     }
 }
