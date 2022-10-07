@@ -76,19 +76,20 @@ impl Arweave {
         Ok(arweave)
     }
 
-    pub async fn create_w2w_transaction(
+    pub async fn create_transaction(
         &self,
         target: Base64,
         other_tags: Vec<Tag<Base64>>,
+        data: Vec<u8>,
         quantity: u64,
         fee: u64,
         auto_content_tag: bool,
     ) -> Result<Tx, Error> {
         let last_tx = self.get_last_tx().await;
-        self.tx_generator.new_w2w_tx(
+        self.tx_generator.new_tx(
             &*self.crypto,
             target,
-            vec![],
+            data,
             quantity,
             fee,
             last_tx,

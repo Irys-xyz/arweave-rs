@@ -172,7 +172,7 @@ impl Tx {
 }
 
 impl Generator for Tx {
-    fn new_w2w_tx(
+    fn new_tx(
         &self,
         crypto: &dyn crypto::Provider,
         target: Base64,

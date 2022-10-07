@@ -6,7 +6,7 @@ use crate::{
 use super::{tags::Tag, Tx};
 
 pub trait Generator {
-    fn new_w2w_tx(
+    fn new_tx(
         &self,
         crypto: &dyn crypto::Provider,
         target: Base64,

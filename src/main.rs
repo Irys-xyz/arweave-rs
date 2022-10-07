@@ -14,8 +14,9 @@ async fn main() {
     let fee = arweave.get_fee(target).await.unwrap();
 
     let tx = arweave
-        .create_w2w_transaction(
+        .create_transaction(
             Base64::from_str("PAgdonEn9f5xd-UbYdCX40Sj28eltQVnxz6bbUijeVY").unwrap(),
+            vec![],
             vec![],
             100000,
             fee,
@@ -25,8 +26,8 @@ async fn main() {
         .unwrap();
 
     let sig_tx = arweave.sign_transaction(tx).unwrap();
-    let ok = arweave.verify_transaction(&sig_tx);
-    dbg!(ok);
+    //let ok = arweave.verify_transaction(&sig_tx);
+    //dbg!(ok);
 
     let res = arweave.post_transaction(&sig_tx).await;
 
