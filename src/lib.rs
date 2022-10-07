@@ -5,6 +5,7 @@ use error::Error;
 use reqwest::header::{ACCEPT, CONTENT_TYPE};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use signer::ArweaveSigner;
 use tokio::time::sleep;
 use transaction::{tags::Tag, Tx};
 
@@ -13,6 +14,7 @@ pub mod crypto;
 pub mod currency;
 pub mod error;
 pub mod network;
+pub mod signer;
 pub mod transaction;
 pub mod wallet;
 
@@ -48,7 +50,7 @@ pub struct Arweave {
     name: String,
     units: String,
     pub base_url: url::Url,
-    pub crypto: Box<dyn crypto::Provider>,
+    pub signer: ArweaveSigner,
     tx_generator: Box<dyn transaction::generator::Generator>,
 }
 
@@ -59,7 +61,7 @@ impl Default for Arweave {
             name: Default::default(),
             units: Default::default(),
             base_url: arweave_url.clone(),
-            crypto: Box::new(RingProvider::default()),
+            signer: Default::default(),
             tx_generator: Box::new(Tx::default()),
         }
     }
@@ -67,10 +69,11 @@ impl Default for Arweave {
 
 impl Arweave {
     pub fn from_keypair_path(keypair_path: PathBuf, base_url: url::Url) -> Result<Arweave, Error> {
-        let crypto = RingProvider::from_keypair_path(keypair_path);
+        let signer =
+            ArweaveSigner::from_keypair_path(keypair_path).expect("Could not create signer");
         let arweave = Arweave {
             base_url,
-            crypto: Box::new(crypto),
+            signer,
             ..Default::default()
         };
         Ok(arweave)
@@ -87,7 +90,7 @@ impl Arweave {
     ) -> Result<Tx, Error> {
         let last_tx = self.get_last_tx().await;
         self.tx_generator.new_tx(
-            &*self.crypto,
+            self.signer.get_provider(),
             target,
             data,
             quantity,
@@ -99,30 +102,12 @@ impl Arweave {
     }
 
     /// Gets deep hash, signs and sets signature and id.
-    pub fn sign_transaction(&self, mut transaction: Tx) -> Result<Tx, Error> {
-        let deep_hash_item = transaction.to_deep_hash_item().unwrap();
-        let signature_data = self.crypto.deep_hash(deep_hash_item);
-        let signature = self.crypto.sign(&signature_data);
-        let id = self.crypto.hash_sha256(&signature);
-        transaction.signature = Base64(signature);
-        transaction.id = Base64(id.to_vec());
-        Ok(transaction)
+    pub fn sign_transaction(&self, transaction: Tx) -> Result<Tx, Error> {
+        self.signer.sign_transaction(transaction)
     }
 
     pub fn verify_transaction(&self, transaction: &Tx) -> Result<(), Error> {
-        if transaction.signature.is_empty() {
-            return Err(Error::UnsignedTransaction);
-        }
-
-        let deep_hash_item = transaction.to_deep_hash_item().unwrap();
-        let data_to_sign = self.crypto.deep_hash(deep_hash_item);
-        let signature = &transaction.signature.to_string();
-        let sig_bytes = signature.as_bytes();
-        if self.crypto.verify(sig_bytes, &data_to_sign) {
-            Ok(())
-        } else {
-            Err(Error::InvalidSignature)
-        }
+        self.signer.verify_transaction(transaction)
     }
 
     pub async fn post_transaction(&self, signed_transaction: &Tx) -> Result<(Base64, u64), Error> {
@@ -136,8 +121,6 @@ impl Arweave {
         let client = reqwest::Client::new();
 
         while (retries < CHUNKS_RETRIES) & (status != reqwest::StatusCode::OK) {
-            let tx_body = json!(&signed_transaction);
-
             let res = client
                 .post(url.clone())
                 .json(&signed_transaction)

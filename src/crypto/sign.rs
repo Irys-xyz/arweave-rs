@@ -1,8 +1,9 @@
 //! Functionality for creating and verifying signatures and hashing.
 
 use crate::{error::Error, wallet::load::load_from_file};
+use data_encoding::BASE64URL;
+use jsonwebkey as jwk;
 use jsonwebkey::JsonWebKey;
-use pretend::Json;
 use ring::{
     digest::{Context, SHA256},
     rand::{self, SecureRandom},
