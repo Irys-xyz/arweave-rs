@@ -39,7 +39,7 @@ impl Hasher for RingHasher {
 
     fn concat_u8_48(&self, left: [u8; 48], right: [u8; 48]) -> [u8; 96] {
         let mut iter = left.into_iter().chain(right);
-        let result = [(); 96].map(|_| iter.next().unwrap());
+        let result = [(); 96].map(|_| iter.next().expect("Could not get concat two arrays"));
         result
     }
 

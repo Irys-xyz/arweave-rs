@@ -34,9 +34,11 @@ impl Default for Signer {
 
 impl Signer {
     pub async fn from_keypair_path(keypair_path: PathBuf) -> Result<Signer, Error> {
-        let data = fs::read_to_string(keypair_path).await.unwrap();
+        let data = fs::read_to_string(keypair_path)
+            .await
+            .expect("Could not open file");
 
-        let jwk_parsed: JsonWebKey = data.parse().unwrap();
+        let jwk_parsed: JsonWebKey = data.parse().expect("Could not parse key");
         Ok(Self {
             keypair: signature::RsaKeyPair::from_pkcs8(&jwk_parsed.key.as_ref().to_der()).unwrap(),
             sr: rand::SystemRandom::new(),
@@ -44,9 +46,9 @@ impl Signer {
     }
 
     pub fn from_keypair_path_sync(keypair_path: PathBuf) -> Result<Signer, Error> {
-        let data = fsSync::read_to_string(keypair_path).unwrap();
+        let data = fsSync::read_to_string(keypair_path).expect("Could not open file");
 
-        let jwk_parsed: JsonWebKey = data.parse().unwrap();
+        let jwk_parsed: JsonWebKey = data.parse().expect("Could not parse key");
         Ok(Self {
             keypair: signature::RsaKeyPair::from_pkcs8(&jwk_parsed.key.as_ref().to_der()).unwrap(),
             sr: rand::SystemRandom::new(),
@@ -110,8 +112,7 @@ mod tests {
     #[test]
     fn test_default_keypair() {
         let path = PathBuf::from_str("res/test_wallet.json").unwrap();
-        let provider = Signer::from_keypair_path_sync(path)
-            .expect("Valid wallet file");
+        let provider = Signer::from_keypair_path_sync(path).expect("Valid wallet file");
         assert_eq!(
             provider.wallet_address().unwrap().to_string(),
             "ggHWyKn0I_CTtsyyt2OR85sPYz9OvKLd9DYIvRQ2ET4"

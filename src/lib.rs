@@ -115,7 +115,10 @@ impl Arweave {
 
         let mut retries = 0;
         let mut status = reqwest::StatusCode::NOT_FOUND;
-        let url = self.base_url.join("tx").unwrap();
+        let url = self
+            .base_url
+            .join("tx")
+            .expect("Could not join base_url with /tx");
         let client = reqwest::Client::new();
 
         while (retries < CHUNKS_RETRIES) & (status != reqwest::StatusCode::OK) {
@@ -139,10 +142,13 @@ impl Arweave {
     }
 
     async fn get_last_tx(&self) -> Base64 {
-        // Fetch and set last_tx if not provided (primarily for testing).
-        let resp = reqwest::get(self.base_url.join("tx_anchor").unwrap())
-            .await
-            .unwrap();
+        let resp = reqwest::get(
+            self.base_url
+                .join("tx_anchor")
+                .expect("Could not join base_url with /tx_anchor"),
+        )
+        .await
+        .expect("Could not get last tx");
         let last_tx_str = resp.text().await.unwrap();
         Base64::from_str(&last_tx_str).unwrap()
     }
@@ -153,13 +159,13 @@ impl Arweave {
         let url = self
             .base_url
             .join(&format!("price/0/{}", target.to_string()))
-            .unwrap();
+            .expect("Could not join base_url with /price/0/{}");
         let winstons_per_bytes = reqwest::get(url)
             .await
             .map_err(|e| Error::ArweaveGetPriceError(e.to_string()))?
             .json::<u64>()
             .await
-            .unwrap();
+            .expect("Could not get base fee");
 
         Ok(winstons_per_bytes)
     }

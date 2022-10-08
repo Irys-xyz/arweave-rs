@@ -28,7 +28,9 @@ impl ArweaveSigner {
     }
 
     pub fn sign_transaction(&self, mut transaction: Tx) -> Result<Tx, Error> {
-        let deep_hash_item = transaction.to_deep_hash_item().unwrap();
+        let deep_hash_item = transaction
+            .to_deep_hash_item()
+            .expect("Could not convert transaction into deep hash item");
         let signature_data = self.crypto.deep_hash(deep_hash_item);
         let signature = self.crypto.sign(&signature_data);
         let id = self.crypto.hash_sha256(&signature);
@@ -43,7 +45,9 @@ impl ArweaveSigner {
             return Err(Error::UnsignedTransaction);
         }
 
-        let deep_hash_item = transaction.to_deep_hash_item().unwrap();
+        let deep_hash_item = transaction
+            .to_deep_hash_item()
+            .expect("Could not convert transaction into deep hash item");
         let data_to_sign = self.crypto.deep_hash(deep_hash_item);
         let signature = &transaction.signature.to_string();
         let sig_bytes = signature.as_bytes();

@@ -38,7 +38,8 @@ impl Default for RingProvider {
 
 impl<'a> RingProvider {
     pub fn from_keypair_path(keypair_path: PathBuf) -> Self {
-        let signer = Signer::from_keypair_path_sync(keypair_path).unwrap();
+        let signer = Signer::from_keypair_path_sync(keypair_path)
+            .expect("Could not create signer from keypair_path");
         RingProvider::new(Box::new(signer), Box::new(RingHasher::default()))
     }
 
@@ -76,6 +77,8 @@ impl Provider for RingProvider {
     }
 
     fn keypair_modulus(&self) -> Base64 {
-        self.signer.keypair_modulus().unwrap()
+        self.signer
+            .keypair_modulus()
+            .expect("Could not get keypair_modulus")
     }
 }
