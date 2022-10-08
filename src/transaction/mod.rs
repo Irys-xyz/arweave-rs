@@ -19,6 +19,7 @@ use crate::{
 
 use self::tags::FromUtf8Strs;
 
+pub mod client;
 pub mod parser;
 pub mod tags;
 

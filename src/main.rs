@@ -34,7 +34,7 @@ async fn main() {
 
     println!("id: {:?} | reward: {:?}", id.to_string(), reward);
 
-    let tx = arweave
+    let (status, tx) = arweave
         .get_tx(Base64::from_str("le3qEiqwF-hHJ_-cjx9qG7ef1h_RxKuYwstsr6wmjeE").unwrap())
         .await
         .unwrap();

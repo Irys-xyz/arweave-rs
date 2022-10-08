@@ -1,13 +1,15 @@
-use std::{fs::File, path::PathBuf, str::FromStr, time::Duration};
+use std::{path::PathBuf, str::FromStr};
 
-use crypto::{base64::Base64, deep_hash::ToItems, RingProvider};
+use crypto::base64::Base64;
 use error::Error;
-use reqwest::header::{ACCEPT, CONTENT_TYPE};
+use pretend::StatusCode;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use signer::ArweaveSigner;
-use tokio::time::sleep;
-use transaction::{tags::Tag, Tx};
+use transaction::{
+    client::{TxClient, TxStatus},
+    tags::Tag,
+    Tx,
+};
 
 pub mod client;
 pub mod crypto;
@@ -36,6 +38,8 @@ pub const CHUNKS_RETRIES: u16 = 10;
 /// Number of seconds to wait between retying to post a failed chunk.
 pub const CHUNKS_RETRY_SLEEP: u64 = 1;
 
+const ARWEAVE_BASE_URL: &str = "https://arweave.net/";
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct OraclePrice {
     pub arweave: OraclePricePair,
@@ -51,18 +55,18 @@ pub struct Arweave {
     units: String,
     pub base_url: url::Url,
     pub signer: ArweaveSigner,
-    client: reqwest::Client,
+    tx_client: TxClient,
 }
 
 impl Default for Arweave {
     fn default() -> Self {
-        let arweave_url = url::Url::from_str("https://arweave.net/").unwrap();
+        let arweave_url = url::Url::from_str(ARWEAVE_BASE_URL).unwrap();
         Self {
             name: Default::default(),
             units: Default::default(),
             base_url: arweave_url.clone(),
             signer: Default::default(),
-            client: reqwest::Client::new(),
+            tx_client: TxClient::default(),
         }
     }
 }
@@ -71,9 +75,12 @@ impl Arweave {
     pub fn from_keypair_path(keypair_path: PathBuf, base_url: url::Url) -> Result<Arweave, Error> {
         let signer =
             ArweaveSigner::from_keypair_path(keypair_path).expect("Could not create signer");
+        let tx_client = TxClient::new(reqwest::Client::new(), base_url.clone())
+            .expect("Could not create TxClient");
         let arweave = Arweave {
             base_url,
             signer,
+            tx_client,
             ..Default::default()
         };
         Ok(arweave)
@@ -111,93 +118,23 @@ impl Arweave {
     }
 
     pub async fn post_transaction(&self, signed_transaction: &Tx) -> Result<(Base64, u64), Error> {
-        if signed_transaction.id.0.is_empty() {
-            return Err(error::Error::UnsignedTransaction.into());
-        }
-
-        let mut retries = 0;
-        let mut status = reqwest::StatusCode::NOT_FOUND;
-        let url = self
-            .base_url
-            .join("tx")
-            .expect("Could not join base_url with /tx");
-
-        while (retries < CHUNKS_RETRIES) & (status != reqwest::StatusCode::OK) {
-            let res = self
-                .client
-                .post(url.clone())
-                .json(&signed_transaction)
-                .header(&ACCEPT, "application/json")
-                .header(&CONTENT_TYPE, "application/json")
-                .send()
-                .await
-                .expect("Could not post transaction");
-            status = res.status();
-            if status == reqwest::StatusCode::OK {
-                return Ok((signed_transaction.id.clone(), signed_transaction.reward));
-            }
-            sleep(Duration::from_secs(CHUNKS_RETRY_SLEEP)).await;
-            retries += 1;
-        }
-
-        Err(Error::StatusCodeNotOk)
+        self.tx_client.post_transaction(signed_transaction).await
     }
 
     async fn get_last_tx(&self) -> Base64 {
-        let resp = self
-            .client
-            .get(
-                self.base_url
-                    .join("tx_anchor")
-                    .expect("Could not join base_url with /tx_anchor"),
-            )
-            .send()
-            .await
-            .expect("Could not get last tx");
-        let last_tx_str = resp.text().await.unwrap();
-        Base64::from_str(&last_tx_str).unwrap()
+        self.tx_client.get_last_tx().await
     }
 
     pub async fn get_fee(&self, target: Base64) -> Result<u64, Error> {
-        let url = self
-            .base_url
-            .join(&format!("price/0/{}", target.to_string()))
-            .expect("Could not join base_url with /price/0/{}");
-        let winstons_per_bytes = reqwest::get(url)
-            .await
-            .map_err(|e| Error::ArweaveGetPriceError(e.to_string()))?
-            .json::<u64>()
-            .await
-            .expect("Could not get base fee");
-
-        Ok(winstons_per_bytes)
+        self.tx_client.get_fee(target).await
     }
 
-    pub async fn get_tx(&self, id: Base64) -> Result<Option<Tx>, Error> {
-        let res = self
-            .client
-            .get(
-                self.base_url
-                    .join(&format!("tx/{}", id.to_string()))
-                    .expect("Could not join base_url with /tx"),
-            )
-            .send()
-            .await
-            .expect("Could not get tx");
+    pub async fn get_tx(&self, id: Base64) -> Result<(StatusCode, Option<Tx>), Error> {
+        self.tx_client.get_tx(id).await
+    }
 
-        if res.status() == 200 {
-            let text = res
-                .text()
-                .await
-                .expect("Could not parse response to string");
-            let tx = Tx::from_str(&text).expect("Could not create Tx from string");
-            return Ok(Some(tx));
-        } else if res.status() == 202 {
-            //Tx is pending
-            return Ok(None);
-        }
-
-        Err(Error::TransactionInfoError(res.status().to_string()))
+    pub async fn get_tx_status(&self, id: Base64) -> Result<TxStatus, Error> {
+        self.tx_client.get_tx_status(id).await
     }
 }
 
@@ -207,7 +144,7 @@ mod tests {
 
     use pretend::Url;
 
-    use crate::{error::Error, transaction::Tx, Arweave};
+    use crate::{error::Error, transaction::Tx, Arweave, ARWEAVE_BASE_URL};
 
     #[test]
     pub fn should_parse_and_verify_valid_tx() -> Result<(), Error> {
@@ -218,8 +155,7 @@ mod tests {
 
         let path = PathBuf::from_str("res/test_wallet.json").unwrap();
         let arweave =
-            Arweave::from_keypair_path(path, Url::from_str("https://arweave.net").unwrap())
-                .unwrap();
+            Arweave::from_keypair_path(path, Url::from_str(ARWEAVE_BASE_URL).unwrap()).unwrap();
 
         //TODO: verification
         //arweave.verify_transaction(&tx)
