@@ -29,9 +29,8 @@ pub struct RingProvider {
 
 impl Default for RingProvider {
     fn default() -> Self {
-        let keypair_path = PathBuf::from(".wallet.json");
         Self {
-            signer: Box::new(Signer::from_keypair_path_sync(keypair_path).unwrap()),
+            signer: Box::new(Signer::default()),
             hasher: Default::default(),
         }
     }

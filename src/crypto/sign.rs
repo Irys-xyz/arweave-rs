@@ -23,6 +23,7 @@ pub struct Signer {
 
 impl Default for Signer {
     fn default() -> Self {
+        //TODO: implement new key generation
         let jwk_parsed = load_from_file("res/test_wallet.json").expect("Valid wallet file");
         Self {
             keypair: signature::RsaKeyPair::from_pkcs8(&jwk_parsed.key.as_ref().to_der()).unwrap(),
@@ -102,11 +103,15 @@ impl Signer {
 
 #[cfg(test)]
 mod tests {
+    use std::{path::PathBuf, str::FromStr};
+
     use crate::{crypto::sign::Signer, error};
 
     #[test]
     fn test_default_keypair() {
-        let provider = Signer::default();
+        let path = PathBuf::from_str("res/test_wallet.json").unwrap();
+        let provider = Signer::from_keypair_path_sync(path)
+            .expect("Valid wallet file");
         assert_eq!(
             provider.wallet_address().unwrap().to_string(),
             "ggHWyKn0I_CTtsyyt2OR85sPYz9OvKLd9DYIvRQ2ET4"
