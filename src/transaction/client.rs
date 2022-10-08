@@ -127,7 +127,7 @@ impl TxClient {
         Err(Error::TransactionInfoError(res.status().to_string()))
     }
 
-    pub async fn get_tx_status(&self, id: Base64) -> Result<Option<TxStatus>, Error> {
+    pub async fn get_tx_status(&self, id: Base64) -> Result<(StatusCode, Option<TxStatus>), Error> {
         let res = self
             .client
             .get(
@@ -146,9 +146,9 @@ impl TxClient {
                 .map_err(|err| Error::TransactionInfoError(err.to_string()))
                 .expect("Could not parse tx status");
 
-            Ok(Some(status))
+            Ok((StatusCode::OK, Some(status)))
         } else if res.status() == StatusCode::ACCEPTED {
-            Ok(None)
+            Ok((StatusCode::ACCEPTED, None))
         } else {
             Err(Error::TransactionInfoError(res.status().to_string()))
         }

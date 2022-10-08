@@ -34,6 +34,6 @@ async fn main() {
 
     println!("id: {:?} | reward: {:?}", id.to_string(), reward);
 
-    let status = arweave.get_tx_status(id).await.unwrap();
-    dbg!(json!(status));
+    let (status, tx_status) = arweave.get_tx_status(id).await.unwrap();
+    dbg!(status, json!(tx_status));
 }

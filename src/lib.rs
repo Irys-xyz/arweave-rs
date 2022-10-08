@@ -133,7 +133,7 @@ impl Arweave {
         self.tx_client.get_tx(id).await
     }
 
-    pub async fn get_tx_status(&self, id: Base64) -> Result<Option<TxStatus>, Error> {
+    pub async fn get_tx_status(&self, id: Base64) -> Result<(StatusCode, Option<TxStatus>), Error> {
         self.tx_client.get_tx_status(id).await
     }
 }
