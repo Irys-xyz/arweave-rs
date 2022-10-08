@@ -58,29 +58,6 @@ pub struct Tx {
     pub proofs: Vec<Proof>,
 }
 
-impl Serialize for Tx {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut s = serializer.serialize_struct("Tx", 12)?;
-        s.serialize_field("format", &self.format)?;
-        s.serialize_field("id", &self.id.to_string())?;
-        s.serialize_field("last_tx", &self.last_tx.to_string())?;
-        s.serialize_field("owner", &self.owner.to_string())?;
-        s.serialize_field("tags", &self.tags)?;
-        s.serialize_field("target", &self.target.to_string())?;
-        s.serialize_field("quantity", &self.quantity.to_string())?;
-        s.serialize_field("data", &self.data.to_string())?;
-        s.serialize_field("data_size", &self.data_size.to_string())?;
-        s.serialize_field("data_root", &self.data_root.to_string())?;
-        s.serialize_field("reward", &self.reward.to_string())?;
-        s.serialize_field("signature", &self.signature.to_string())?;
-
-        s.end()
-    }
-}
-
 impl<'a> ToItems<'a, Tx> for Tx {
     fn to_deep_hash_item(&'a self) -> Result<DeepHashItem, Error> {
         match &self.format {
@@ -175,7 +152,7 @@ impl Tx {
         crypto: &dyn crypto::Provider,
         target: Base64,
         data: Vec<u8>,
-        quantity: u64,
+        quantity: u128,
         fee: u64,
         last_tx: Base64,
         other_tags: Vec<Tag<Base64>>,

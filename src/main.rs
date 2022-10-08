@@ -2,6 +2,7 @@ use std::{path::PathBuf, str::FromStr};
 
 use arweave_rs::crypto::base64::Base64;
 use arweave_rs::Arweave;
+use serde_json::json;
 use url::Url;
 
 #[tokio::main]
@@ -29,7 +30,13 @@ async fn main() {
     //let ok = arweave.verify_transaction(&sig_tx);
     //dbg!(ok);
 
-    let res = arweave.post_transaction(&sig_tx).await;
+    let (id, reward) = arweave.post_transaction(&sig_tx).await.unwrap();
 
-    println!("{:?}", res.unwrap());
+    println!("id: {:?} | reward: {:?}", id.to_string(), reward);
+
+    let tx = arweave
+        .get_tx(Base64::from_str("le3qEiqwF-hHJ_-cjx9qG7ef1h_RxKuYwstsr6wmjeE").unwrap())
+        .await
+        .unwrap();
+    dbg!(json!(tx));
 }

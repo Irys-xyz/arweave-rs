@@ -1,5 +1,7 @@
 use std::str::FromStr;
 
+use serde::{ser::SerializeStruct, Serialize, Serializer};
+
 use crate::{currency::Currency, error::Error};
 
 use super::{JsonTx, Tx};
@@ -25,6 +27,29 @@ impl FromStr for Tx {
             chunks: vec![],
             proofs: vec![],
         })
+    }
+}
+
+impl Serialize for Tx {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut s = serializer.serialize_struct("Tx", 12)?;
+        s.serialize_field("format", &self.format)?;
+        s.serialize_field("id", &self.id.to_string())?;
+        s.serialize_field("last_tx", &self.last_tx.to_string())?;
+        s.serialize_field("owner", &self.owner.to_string())?;
+        s.serialize_field("tags", &self.tags)?;
+        s.serialize_field("target", &self.target.to_string())?;
+        s.serialize_field("quantity", &self.quantity.to_string())?;
+        s.serialize_field("data", &self.data.to_string())?;
+        s.serialize_field("data_size", &self.data_size.to_string())?;
+        s.serialize_field("data_root", &self.data_root.to_string())?;
+        s.serialize_field("reward", &self.reward.to_string())?;
+        s.serialize_field("signature", &self.signature.to_string())?;
+
+        s.end()
     }
 }
 

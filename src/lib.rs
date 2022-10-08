@@ -51,6 +51,7 @@ pub struct Arweave {
     units: String,
     pub base_url: url::Url,
     pub signer: ArweaveSigner,
+    client: reqwest::Client,
 }
 
 impl Default for Arweave {
@@ -61,6 +62,7 @@ impl Default for Arweave {
             units: Default::default(),
             base_url: arweave_url.clone(),
             signer: Default::default(),
+            client: reqwest::Client::new(),
         }
     }
 }
@@ -82,7 +84,7 @@ impl Arweave {
         target: Base64,
         other_tags: Vec<Tag<Base64>>,
         data: Vec<u8>,
-        quantity: u64,
+        quantity: u128,
         fee: u64,
         auto_content_tag: bool,
     ) -> Result<Tx, Error> {
@@ -119,10 +121,10 @@ impl Arweave {
             .base_url
             .join("tx")
             .expect("Could not join base_url with /tx");
-        let client = reqwest::Client::new();
 
         while (retries < CHUNKS_RETRIES) & (status != reqwest::StatusCode::OK) {
-            let res = client
+            let res = self
+                .client
                 .post(url.clone())
                 .json(&signed_transaction)
                 .header(&ACCEPT, "application/json")
@@ -142,19 +144,20 @@ impl Arweave {
     }
 
     async fn get_last_tx(&self) -> Base64 {
-        let resp = reqwest::get(
-            self.base_url
-                .join("tx_anchor")
-                .expect("Could not join base_url with /tx_anchor"),
-        )
-        .await
-        .expect("Could not get last tx");
+        let resp = self
+            .client
+            .get(
+                self.base_url
+                    .join("tx_anchor")
+                    .expect("Could not join base_url with /tx_anchor"),
+            )
+            .send()
+            .await
+            .expect("Could not get last tx");
         let last_tx_str = resp.text().await.unwrap();
         Base64::from_str(&last_tx_str).unwrap()
     }
 
-    /// Returns price of uploading data to the network in winstons and USD per AR and USD per SOL
-    /// as a BigUint with two decimals.
     pub async fn get_fee(&self, target: Base64) -> Result<u64, Error> {
         let url = self
             .base_url
@@ -168,6 +171,33 @@ impl Arweave {
             .expect("Could not get base fee");
 
         Ok(winstons_per_bytes)
+    }
+
+    pub async fn get_tx(&self, id: Base64) -> Result<Option<Tx>, Error> {
+        let res = self
+            .client
+            .get(
+                self.base_url
+                    .join(&format!("tx/{}", id.to_string()))
+                    .expect("Could not join base_url with /tx"),
+            )
+            .send()
+            .await
+            .expect("Could not get tx");
+
+        if res.status() == 200 {
+            let text = res
+                .text()
+                .await
+                .expect("Could not parse response to string");
+            let tx = Tx::from_str(&text).expect("Could not create Tx from string");
+            return Ok(Some(tx));
+        } else if res.status() == 202 {
+            //Tx is pending
+            return Ok(None);
+        }
+
+        Err(Error::TransactionInfoError(res.status().to_string()))
     }
 }
 

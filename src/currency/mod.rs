@@ -1,20 +1,21 @@
 use std::str::FromStr;
 
-use serde::Deserialize;
+use serde::{de, Deserialize, Deserializer};
+use serde_json::Value;
 
 use crate::error::Error;
 
 /// Winstons are a sub unit of the native Arweave network token, AR. There are 10<sup>12</sup> Winstons per AR.
 pub const WINSTONS_PER_AR: u64 = 1_000_000_000_000;
 
-#[derive(Deserialize, Debug, Default, PartialEq)]
+#[derive(Debug, Default, PartialEq)]
 pub struct Currency {
     arweave: u64, //integer
     winston: u64, //decimal
 }
 
-impl From<u64> for Currency {
-    fn from(u: u64) -> Self {
+impl From<u128> for Currency {
+    fn from(u: u128) -> Self {
         let s = u.to_string();
         let mut arweave: u64 = 0;
         let mut winston: u64 = 0;
@@ -22,7 +23,7 @@ impl From<u64> for Currency {
             winston = u as u64;
         } else {
             let d = s.split_at(s.len() - 12);
-            winston = (u % WINSTONS_PER_AR) as u64;
+            winston = (u % (WINSTONS_PER_AR as u128)) as u64;
             arweave = u64::from_str_radix(d.0, 10).unwrap();
         }
 
@@ -57,6 +58,21 @@ impl ToString for Currency {
         } else {
             self.arweave.to_string() + &decimal
         }
+    }
+}
+
+impl<'de> Deserialize<'de> for Currency {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Ok(match Value::deserialize(deserializer)? {
+            Value::String(s) => Currency::from_str(&s).expect("Could not deserialize"),
+            Value::Number(num) => {
+                Currency::from(num.as_u64().expect("Could not deserialize") as u128)
+            }
+            _ => return Err(de::Error::custom("Wrong type")),
+        })
     }
 }
 
