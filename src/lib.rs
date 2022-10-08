@@ -51,7 +51,6 @@ pub struct Arweave {
     units: String,
     pub base_url: url::Url,
     pub signer: ArweaveSigner,
-    tx_generator: Box<dyn transaction::generator::Generator>,
 }
 
 impl Default for Arweave {
@@ -62,7 +61,6 @@ impl Default for Arweave {
             units: Default::default(),
             base_url: arweave_url.clone(),
             signer: Default::default(),
-            tx_generator: Box::new(Tx::default()),
         }
     }
 }
@@ -89,7 +87,7 @@ impl Arweave {
         auto_content_tag: bool,
     ) -> Result<Tx, Error> {
         let last_tx = self.get_last_tx().await;
-        self.tx_generator.new_tx(
+        Tx::new(
             self.signer.get_provider(),
             target,
             data,

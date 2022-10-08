@@ -17,9 +17,8 @@ use crate::{
     VERSION,
 };
 
-use self::{generator::Generator, tags::FromUtf8Strs};
+use self::tags::FromUtf8Strs;
 
-pub mod generator;
 pub mod parser;
 pub mod tags;
 
@@ -171,9 +170,8 @@ impl Tx {
     }
 }
 
-impl Generator for Tx {
-    fn new_tx(
-        &self,
+impl Tx {
+    pub fn new(
         crypto: &dyn crypto::Provider,
         target: Base64,
         data: Vec<u8>,
