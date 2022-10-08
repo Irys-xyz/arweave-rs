@@ -4,7 +4,7 @@ use crate::{
     crypto::{
         self,
         base64::Base64,
-        deep_hash::{DeepHashItem, ToItems},
+        deep_hash::ToItems,
         RingProvider,
     },
     error::Error,
@@ -12,7 +12,7 @@ use crate::{
 };
 
 pub struct ArweaveSigner {
-    crypto: Box<dyn crypto::Provider>,
+    crypto: Box<dyn crypto::Provider + Send + Sync>,
 }
 
 impl Default for ArweaveSigner {
