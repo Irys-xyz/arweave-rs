@@ -1,12 +1,7 @@
 use std::path::PathBuf;
 
 use crate::{
-    crypto::{
-        self,
-        base64::Base64,
-        deep_hash::ToItems,
-        RingProvider,
-    },
+    crypto::{self, base64::Base64, deep_hash::ToItems, RingProvider},
     error::Error,
     transaction::Tx,
 };
