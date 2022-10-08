@@ -70,7 +70,7 @@ impl Serialize for Tx {
         s.serialize_field("owner", &self.owner.to_string())?;
         s.serialize_field("tags", &self.tags)?;
         s.serialize_field("target", &self.target.to_string())?;
-        s.serialize_field("quantity", &self.quantity.to_json_string())?;
+        s.serialize_field("quantity", &self.quantity.to_string())?;
         s.serialize_field("data", &self.data.to_string())?;
         s.serialize_field("data_size", &self.data_size.to_string())?;
         s.serialize_field("data_root", &self.data_root.to_string())?;
@@ -85,7 +85,7 @@ impl<'a> ToItems<'a, Tx> for Tx {
     fn to_deep_hash_item(&'a self) -> Result<DeepHashItem, Error> {
         match &self.format {
             1 => {
-                let quantity = Base64::from_utf8_str(&self.quantity.to_json_string()).unwrap();
+                let quantity = Base64::from_utf8_str(&self.quantity.to_string()).unwrap();
                 let reward = Base64::from_utf8_str(&self.reward.to_string()).unwrap();
                 let mut children: Vec<DeepHashItem> = vec![
                     &self.owner,
@@ -107,7 +107,7 @@ impl<'a> ToItems<'a, Tx> for Tx {
                     self.format.to_string().as_bytes(),
                     &self.owner.0,
                     &self.target.0,
-                    self.quantity.to_json_string().as_bytes(),
+                    self.quantity.to_string().as_bytes(),
                     self.reward.to_string().as_bytes(),
                     &self.last_tx.0,
                 ]

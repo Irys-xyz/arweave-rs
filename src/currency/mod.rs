@@ -49,8 +49,8 @@ impl FromStr for Currency {
     }
 }
 
-impl Currency {
-    pub fn to_json_string(&self) -> String {
+impl ToString for Currency {
+    fn to_string(&self) -> String {
         let decimal = format!("{:#012}", self.winston);
         if self.arweave == 0 {
             decimal.trim_start_matches('0').to_string()
@@ -71,32 +71,32 @@ mod tests {
         let curr = Currency::from_str("1.000000000000").unwrap();
         assert_eq!(curr.winston, 0);
         assert_eq!(curr.arweave, 1);
-        assert_eq!(curr.to_json_string(), "1000000000000");
+        assert_eq!(curr.to_string(), "1000000000000");
 
         let curr = Currency::from_str("10.000000000000").unwrap();
         assert_eq!(curr.winston, 0);
         assert_eq!(curr.arweave, 10);
-        assert_eq!(curr.to_json_string(), "10000000000000");
+        assert_eq!(curr.to_string(), "10000000000000");
 
         let curr = Currency::from_str("999.000000000000").unwrap();
         assert_eq!(curr.winston, 0);
         assert_eq!(curr.arweave, 999);
-        assert_eq!(curr.to_json_string(), "999000000000000");
+        assert_eq!(curr.to_string(), "999000000000000");
 
         let curr = Currency::from_str("999.123123123123").unwrap();
         assert_eq!(curr.winston, 123123123123);
         assert_eq!(curr.arweave, 999);
-        assert_eq!(curr.to_json_string(), "999123123123123");
+        assert_eq!(curr.to_string(), "999123123123123");
 
         let curr = Currency::from_str("123123123123").unwrap();
         assert_eq!(curr.winston, 123123123123);
         assert_eq!(curr.arweave, 0);
-        assert_eq!(curr.to_json_string(), "123123123123");
+        assert_eq!(curr.to_string(), "123123123123");
 
         let curr = Currency::from_str("10000").unwrap();
         assert_eq!(curr.winston, 10000);
         assert_eq!(curr.arweave, 0);
-        assert_eq!(curr.to_json_string(), "10000");
+        assert_eq!(curr.to_string(), "10000");
     }
 
     #[test]
@@ -104,31 +104,31 @@ mod tests {
         let curr = Currency::from(1_000_000_000_000);
         assert_eq!(curr.winston, 0);
         assert_eq!(curr.arweave, 1);
-        assert_eq!(curr.to_json_string(), "1000000000000");
+        assert_eq!(curr.to_string(), "1000000000000");
 
         let curr = Currency::from(10_000_000_000_000);
         assert_eq!(curr.winston, 0);
         assert_eq!(curr.arweave, 10);
-        assert_eq!(curr.to_json_string(), "10000000000000");
+        assert_eq!(curr.to_string(), "10000000000000");
 
         let curr = Currency::from(999_000_000_000_000);
         assert_eq!(curr.winston, 0);
         assert_eq!(curr.arweave, 999);
-        assert_eq!(curr.to_json_string(), "999000000000000");
+        assert_eq!(curr.to_string(), "999000000000000");
 
         let curr = Currency::from(999_123_123_123_123);
         assert_eq!(curr.winston, 123123123123);
         assert_eq!(curr.arweave, 999);
-        assert_eq!(curr.to_json_string(), "999123123123123");
+        assert_eq!(curr.to_string(), "999123123123123");
 
         let curr = Currency::from(123_123_123_123);
         assert_eq!(curr.winston, 123123123123);
         assert_eq!(curr.arweave, 0);
-        assert_eq!(curr.to_json_string(), "123123123123");
+        assert_eq!(curr.to_string(), "123123123123");
 
         let curr = Currency::from(10000);
         assert_eq!(curr.winston, 10000);
         assert_eq!(curr.arweave, 0);
-        assert_eq!(curr.to_json_string(), "10000");
+        assert_eq!(curr.to_string(), "10000");
     }
 }
