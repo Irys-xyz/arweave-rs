@@ -146,6 +146,10 @@ impl Arweave {
     pub fn get_pub_key(&self) -> String {
         self.signer.keypair_modulus().to_string()
     }
+
+    pub fn get_wallet_address(&self) -> String {
+        self.signer.wallet_address().to_string()
+    }
 }
 
 #[cfg(test)]

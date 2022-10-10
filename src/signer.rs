@@ -70,8 +70,8 @@ impl ArweaveSigner {
         self.crypto.hash_sha256(message)
     }
 
-    pub fn get_pub_key(&self) -> Base64 {
-        self.crypto.get_pub_key()
+    pub fn wallet_address(&self) -> Base64 {
+        self.crypto.wallet_address()
     }
 
     pub fn keypair_modulus(&self) -> Base64 {
