@@ -144,7 +144,7 @@ impl Arweave {
     }
 
     pub fn get_pub_key(&self) -> String {
-        self.signer.get_pub_key().to_string()
+        self.signer.keypair_modulus().to_string()
     }
 }
 
