@@ -116,8 +116,11 @@ impl Arweave {
         self.signer.verify_transaction(transaction)
     }
 
-    pub async fn post_transaction(&self, signed_transaction: &Tx) -> Result<(Base64, u64), Error> {
-        self.tx_client.post_transaction(signed_transaction).await
+    pub async fn post_transaction(&self, signed_transaction: &Tx) -> Result<(String, u64), Error> {
+        self.tx_client
+            .post_transaction(signed_transaction)
+            .await
+            .map(|(id, reward)| (id.to_string(), reward))
     }
 
     async fn get_last_tx(&self) -> Base64 {
@@ -136,8 +139,8 @@ impl Arweave {
         self.tx_client.get_tx_status(id).await
     }
 
-    pub async fn get_pub_key(&self) -> Base64 {
-        self.signer.get_pub_key()
+    pub fn get_pub_key(&self) -> String {
+        self.signer.get_pub_key().to_string()
     }
 }
 
