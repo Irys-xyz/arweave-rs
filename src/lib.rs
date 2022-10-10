@@ -112,6 +112,10 @@ impl Arweave {
         self.signer.sign_transaction(transaction)
     }
 
+    pub fn sign_message(&self, message: &[u8]) -> Vec<u8> {
+        self.signer.sign_message(message)
+    }
+
     pub fn verify_transaction(&self, transaction: &Tx) -> Result<(), Error> {
         self.signer.verify_transaction(transaction)
     }

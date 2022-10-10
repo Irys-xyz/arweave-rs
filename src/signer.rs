@@ -39,6 +39,10 @@ impl ArweaveSigner {
         Ok(transaction)
     }
 
+    pub fn sign_message(&self, message: &[u8]) -> Vec<u8> {
+        self.crypto.sign(message)
+    }
+
     pub fn verify_transaction(&self, transaction: &Tx) -> Result<(), Error> {
         todo!();
         if transaction.signature.is_empty() {
