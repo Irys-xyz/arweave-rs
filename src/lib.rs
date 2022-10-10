@@ -108,7 +108,6 @@ impl Arweave {
         )
     }
 
-    /// Gets deep hash, signs and sets signature and id.
     pub fn sign_transaction(&self, transaction: Tx) -> Result<Tx, Error> {
         self.signer.sign_transaction(transaction)
     }
@@ -135,6 +134,10 @@ impl Arweave {
 
     pub async fn get_tx_status(&self, id: Base64) -> Result<(StatusCode, Option<TxStatus>), Error> {
         self.tx_client.get_tx_status(id).await
+    }
+
+    pub async fn get_pub_key(&self) -> Base64 {
+        self.signer.get_pub_key()
     }
 }
 

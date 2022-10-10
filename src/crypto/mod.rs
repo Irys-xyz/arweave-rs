@@ -20,6 +20,7 @@ pub trait Provider {
     fn hash_sha256(&self, message: &[u8]) -> [u8; 32];
     fn keypair_modulus(&self) -> Base64;
     fn get_hasher(&self) -> &dyn Hasher;
+    fn get_pub_key(&self) -> Base64;
 }
 
 pub struct RingProvider {
@@ -80,5 +81,9 @@ impl Provider for RingProvider {
         self.signer
             .keypair_modulus()
             .expect("Could not get keypair_modulus")
+    }
+
+    fn get_pub_key(&self) -> Base64 {
+        self.signer.wallet_address().expect("Could not get pub key")
     }
 }
