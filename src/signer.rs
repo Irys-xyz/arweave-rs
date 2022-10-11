@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use crate::{
-    crypto::{self, base64::Base64, deep_hash::ToItems, RingProvider},
+    crypto::{self, base64::Base64, deep_hash::ToItems, Provider, RingProvider},
     error::Error,
     transaction::Tx,
 };
@@ -19,6 +19,11 @@ impl Default for ArweaveSigner {
 }
 
 impl ArweaveSigner {
+    pub fn verify(message: &[u8], pub_key: &[u8], signature: &[u8]) -> bool {
+        let crypto = RingProvider::default();
+        crypto.verify(pub_key, signature, message)
+    }
+
     pub fn from_keypair_path(keypair_path: PathBuf) -> Result<ArweaveSigner, Error> {
         let crypto = RingProvider::from_keypair_path(keypair_path);
         let signer = ArweaveSigner {
@@ -39,7 +44,7 @@ impl ArweaveSigner {
         Ok(transaction)
     }
 
-    pub fn sign_message(&self, message: &[u8]) -> Vec<u8> {
+    pub fn sign(&self, message: &[u8]) -> Vec<u8> {
         self.crypto.sign(message)
     }
 
