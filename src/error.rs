@@ -7,7 +7,7 @@ pub enum Error {
     OracleGetPriceError(String),
 
     #[error("Getting Arweave price from oracle: {0}")]
-    ArweaveGetPriceError(String),
+    GetPriceError(String),
 
     #[error("Status code not Ok")]
     StatusCodeNotOk,
@@ -47,4 +47,7 @@ pub enum Error {
 
     #[error("Invalid signature")]
     InvalidSignature,
+
+    #[error("Error posting chunk: {0}")]
+    PostChunkError(String),
 }

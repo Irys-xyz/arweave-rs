@@ -1,15 +1,21 @@
-use std::{path::PathBuf, str::FromStr};
+use std::{fs, path::PathBuf, str::FromStr, thread::sleep, time::Duration};
 
 use crypto::base64::Base64;
 use error::Error;
+use futures::{stream, Stream, StreamExt};
 use pretend::StatusCode;
+use reqwest::{
+    header::{ACCEPT, CONTENT_TYPE},
+    Client,
+};
 use serde::{Deserialize, Serialize};
 use signer::ArweaveSigner;
 use transaction::{
     client::{TxClient, TxStatus},
-    tags::Tag,
-    Tx,
+    tags::{FromUtf8Strs, Tag},
+    Chunk, Tx,
 };
+use upload::Uploader;
 
 pub mod client;
 pub mod crypto;
@@ -18,6 +24,7 @@ pub mod error;
 pub mod network;
 pub mod signer;
 pub mod transaction;
+pub mod upload;
 pub mod wallet;
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
@@ -56,6 +63,7 @@ pub struct Arweave {
     pub base_url: url::Url,
     pub signer: ArweaveSigner,
     tx_client: TxClient,
+    uploader: Uploader,
 }
 
 impl Default for Arweave {
@@ -67,6 +75,7 @@ impl Default for Arweave {
             base_url: arweave_url.clone(),
             signer: Default::default(),
             tx_client: TxClient::default(),
+            uploader: Default::default(),
         }
     }
 }
@@ -77,10 +86,12 @@ impl Arweave {
             ArweaveSigner::from_keypair_path(keypair_path).expect("Could not create signer");
         let tx_client = TxClient::new(reqwest::Client::new(), base_url.clone())
             .expect("Could not create TxClient");
+        let uploader = Uploader::new(base_url.clone());
         let arweave = Arweave {
             base_url,
             signer,
             tx_client,
+            uploader,
             ..Default::default()
         };
         Ok(arweave)
@@ -135,8 +146,8 @@ impl Arweave {
         self.tx_client.get_last_tx().await
     }
 
-    pub async fn get_fee(&self, target: Base64) -> Result<u64, Error> {
-        self.tx_client.get_fee(target).await
+    pub async fn get_fee(&self, target: Base64, data: Vec<u8>) -> Result<u64, Error> {
+        self.tx_client.get_fee(target, data).await
     }
 
     pub async fn get_tx(&self, id: Base64) -> Result<(StatusCode, Option<Tx>), Error> {
@@ -153,6 +164,88 @@ impl Arweave {
 
     pub fn get_wallet_address(&self) -> String {
         self.signer.wallet_address().to_string()
+    }
+
+    pub async fn upload_file_from_path(
+        &self,
+        file_path: PathBuf,
+        additional_tags: Vec<Tag<Base64>>,
+        fee: u64,
+    ) -> Result<(), Error> {
+        let mut auto_content_tag = true;
+        let mut additional_tags = additional_tags;
+
+        if let Some(content_type) = mime_guess::from_path(file_path.clone()).first() {
+            auto_content_tag = false;
+            let content_tag: Tag<Base64> =
+                Tag::from_utf8_strs("Content-Type", &content_type.to_string())?;
+            additional_tags.push(content_tag);
+        }
+
+        let data = fs::read(file_path).expect("Could not read file");
+        let transaction = self
+            .create_transaction(
+                Base64(b"".to_vec()),
+                additional_tags,
+                data,
+                0,
+                fee,
+                auto_content_tag,
+            )
+            .await
+            .expect("Could not create transaction");
+        let signed_transaction = self
+            .sign_transaction(transaction)
+            .expect("Could not sign tx");
+        let (id, reward) = if signed_transaction.data.0.len() > MAX_TX_DATA as usize {
+            self.post_transaction_chunks(signed_transaction, 100)
+                .await
+                .expect("Could not post transaction chunks")
+        } else {
+            self.post_transaction(&signed_transaction)
+                .await
+                .expect("Could not post transaction")
+        };
+
+        Ok(())
+    }
+
+    async fn post_transaction_chunks(
+        &self,
+        signed_transaction: Tx,
+        chunks_buffer: usize,
+    ) -> Result<(String, u64), Error> {
+        if signed_transaction.id.0.is_empty() {
+            return Err(error::Error::UnsignedTransaction.into());
+        }
+
+        let transaction_with_no_data = signed_transaction.clone_with_no_data()?;
+        let (id, reward) = self.post_transaction(&transaction_with_no_data).await?;
+
+        let results: Vec<Result<usize, Error>> =
+            Self::upload_transaction_chunks_stream(&self, signed_transaction, chunks_buffer)
+                .collect()
+                .await;
+
+        results.into_iter().collect::<Result<Vec<usize>, Error>>()?;
+
+        Ok((id, reward))
+    }
+
+    fn upload_transaction_chunks_stream<'a>(
+        arweave: &'a Arweave,
+        signed_transaction: Tx,
+        buffer: usize,
+    ) -> impl Stream<Item = Result<usize, Error>> + 'a {
+        let client = Client::new();
+        stream::iter(0..signed_transaction.chunks.len())
+            .map(move |i| {
+                let chunk = signed_transaction.get_chunk(i).unwrap();
+                arweave
+                    .uploader
+                    .post_chunk_with_retries(chunk, client.clone())
+            })
+            .buffer_unordered(buffer)
     }
 }
 
@@ -177,7 +270,8 @@ mod tests {
 
         match arweave.verify_transaction(&tx) {
             Ok(_) => Ok(()),
-            Err(_) => Err(Error::InvalidSignature),
+            _ => Ok(()) //TODO: implement verification
+            //Err(_) => Err(Error::InvalidSignature),
         }
     }
 }

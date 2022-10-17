@@ -59,6 +59,16 @@ pub struct Tx {
     pub proofs: Vec<Proof>,
 }
 
+/// Chunk data structure per [Arweave chunk spec](https://docs.arweave.org/developers/server/http-api#upload-chunks).
+#[derive(Serialize, Deserialize, Debug, Default, PartialEq)]
+pub struct Chunk {
+    data_root: Base64,
+    data_size: u64,
+    data_path: Base64,
+    pub offset: usize,
+    chunk: Base64,
+}
+
 impl<'a> ToItems<'a, Tx> for Tx {
     fn to_deep_hash_item(&'a self) -> Result<DeepHashItem, Error> {
         match &self.format {
@@ -159,7 +169,7 @@ impl Tx {
         other_tags: Vec<Tag<Base64>>,
         auto_content_tag: bool,
     ) -> Result<Self, Error> {
-        if quantity <= Zero::zero() {
+        if quantity < Zero::zero() {
             return Err(Error::InvalidValueForTx);
         }
 
@@ -192,5 +202,37 @@ impl Tx {
         transaction.target = target;
 
         Ok(transaction)
+    }
+
+    pub fn clone_with_no_data(&self) -> Result<Self, Error> {
+        Ok(Self {
+            format: self.format,
+            id: self.id.clone(),
+            last_tx: self.last_tx.clone(),
+            owner: self.owner.clone(),
+            tags: self.tags.clone(),
+            target: self.target.clone(),
+            quantity: self.quantity,
+            data_root: self.data_root.clone(),
+            data: Base64::default(),
+            data_size: self.data_size,
+            reward: self.reward,
+            signature: self.signature.clone(),
+            chunks: Vec::new(),
+            proofs: Vec::new(),
+        })
+    }
+
+    pub fn get_chunk(&self, idx: usize) -> Result<Chunk, Error> {
+        Ok(Chunk {
+            data_root: self.data_root.clone(),
+            data_size: self.data_size,
+            data_path: Base64(self.proofs[idx].proof.clone()),
+            offset: self.proofs[idx].offset,
+            chunk: Base64(
+                self.data.0[self.chunks[idx].min_byte_range..self.chunks[idx].max_byte_range]
+                    .to_vec(),
+            ),
+        })
     }
 }

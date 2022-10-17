@@ -46,6 +46,10 @@ impl Base64 {
     pub fn to_utf8_string(&self) -> Result<String, Error> {
         Ok(String::from_utf8(self.0.clone()).expect("Could not convert from utf8"))
     }
+
+    pub fn empty() -> Self {
+        Base64(vec![])
+    }
 }
 
 impl Serialize for Base64 {

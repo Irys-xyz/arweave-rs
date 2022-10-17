@@ -8,7 +8,7 @@ use crate::error::Error;
 /// Winstons are a sub unit of the native Arweave network token, AR. There are 10<sup>12</sup> Winstons per AR.
 pub const WINSTONS_PER_AR: u64 = 1_000_000_000_000;
 
-#[derive(Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Currency {
     arweave: u64, //integer
     winston: u64, //decimal
@@ -53,7 +53,9 @@ impl FromStr for Currency {
 impl ToString for Currency {
     fn to_string(&self) -> String {
         let decimal = format!("{:#012}", self.winston);
-        if self.arweave == 0 {
+        if self.arweave == 0 && self.winston == 0 {
+            '0'.to_string()
+        } else if self.arweave == 0 {
             decimal.trim_start_matches('0').to_string()
         } else {
             self.arweave.to_string() + &decimal

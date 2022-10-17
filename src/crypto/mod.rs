@@ -64,8 +64,7 @@ impl Provider for RingProvider {
     }
 
     fn sign(&self, message: &[u8]) -> Base64 {
-        self.signer.sign(message)
-            .expect("Valid message")
+        self.signer.sign(message).expect("Valid message")
     }
 
     fn verify(&self, pub_key: &[u8], message: &[u8], signature: &[u8]) -> bool {
@@ -96,11 +95,18 @@ impl Provider for RingProvider {
 
 #[cfg(test)]
 mod tests {
-    use super::{RingProvider, Provider, base64::Base64};
+    use super::{base64::Base64, Provider, RingProvider};
 
     #[test]
     fn test_sign_verify() {
-        let message = Base64([9, 214, 233, 210, 242, 45, 194, 247, 28, 234, 14, 86, 105, 40, 41, 251, 52, 39, 236, 214, 54, 13, 53, 254, 179, 53, 220, 205, 129, 37, 244, 142, 230, 32, 209, 103, 68, 75, 39, 178, 10, 186, 24, 160, 179, 143, 211, 151].to_vec());
+        let message = Base64(
+            [
+                9, 214, 233, 210, 242, 45, 194, 247, 28, 234, 14, 86, 105, 40, 41, 251, 52, 39,
+                236, 214, 54, 13, 53, 254, 179, 53, 220, 205, 129, 37, 244, 142, 230, 32, 209, 103,
+                68, 75, 39, 178, 10, 186, 24, 160, 179, 143, 211, 151,
+            ]
+            .to_vec(),
+        );
         let provider = RingProvider::default();
         let signature = provider.sign(&message.0);
         let pubk = provider.public_key();

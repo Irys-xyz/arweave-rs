@@ -69,15 +69,17 @@ impl ArweaveSigner {
             "{{\"kty\":\"RSA\",\"e\":\"AQAB\",\"n\":\"{}\"}}",
             transaction.owner.to_string()
         );
-        let jwk: JsonWebKey = jwt_str.parse()
-            .expect("Could not parse JsonWebKey");
-        let public_key =
-            signature::UnparsedPublicKey::new(&signature::RSA_PKCS1_2048_8192_SHA256, transaction.owner.0.clone());
+        let jwk: JsonWebKey = jwt_str.parse().expect("Could not parse JsonWebKey");
+        let public_key = signature::UnparsedPublicKey::new(
+            &signature::RSA_PKCS1_2048_8192_SHA256,
+            transaction.owner.0.clone(),
+        );
 
         println!("pubk: {:?}", transaction.owner.to_string());
         println!("message: {}", Base64(message.to_vec()).to_string());
         println!("sig: {}", &signature.to_string());
-        public_key.verify(&message, &signature.0)
+        public_key
+            .verify(&message, &signature.0)
             .map_err(|_| Error::InvalidSignature)
     }
 
@@ -106,11 +108,18 @@ impl ArweaveSigner {
 mod tests {
     use crate::error::Error;
 
-    use super::{Base64, ArweaveSigner};
+    use super::{ArweaveSigner, Base64};
 
     #[test]
     fn test_sign_verify() -> Result<(), Error> {
-        let message = Base64([74, 15, 74, 255, 248, 205, 47, 229, 107, 195, 69, 76, 215, 249, 34, 186, 197, 31, 178, 163, 72, 54, 78, 179, 19, 178, 1, 132, 183, 231, 131, 213, 146, 203, 6, 99, 106, 231, 215, 199, 181, 171, 52, 255, 205, 55, 203, 117].to_vec());
+        let message = Base64(
+            [
+                74, 15, 74, 255, 248, 205, 47, 229, 107, 195, 69, 76, 215, 249, 34, 186, 197, 31,
+                178, 163, 72, 54, 78, 179, 19, 178, 1, 132, 183, 231, 131, 213, 146, 203, 6, 99,
+                106, 231, 215, 199, 181, 171, 52, 255, 205, 55, 203, 117,
+            ]
+            .to_vec(),
+        );
         let signer = ArweaveSigner::default();
         let signature = signer.sign(&message.0);
         let pubk = signer.get_public_key();
