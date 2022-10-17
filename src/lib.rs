@@ -113,15 +113,15 @@ impl Arweave {
     }
 
     pub fn sign(&self, message: &[u8]) -> Vec<u8> {
-        self.signer.sign(message)
+        self.signer.sign(message).0
     }
 
     pub fn verify_transaction(&self, transaction: &Tx) -> Result<(), Error> {
-        self.signer.verify_transaction(transaction)
+        ArweaveSigner::verify_transaction(transaction)
     }
 
-    pub fn verify(message: &[u8], pub_key: &[u8], signature: &[u8]) -> bool {
-        ArweaveSigner::verify(message, pub_key, signature)
+    pub fn verify(pub_key: &[u8], message: &[u8], signature: &[u8]) -> Result<(), Error> {
+        ArweaveSigner::verify(pub_key, message, signature)
     }
 
     pub async fn post_transaction(&self, signed_transaction: &Tx) -> Result<(String, u64), Error> {
@@ -175,8 +175,9 @@ mod tests {
         let arweave =
             Arweave::from_keypair_path(path, Url::from_str(ARWEAVE_BASE_URL).unwrap()).unwrap();
 
-        //TODO: verification
-        //arweave.verify_transaction(&tx)
-        Ok(())
+        match arweave.verify_transaction(&tx) {
+            Ok(_) => Ok(()),
+            Err(_) => Err(Error::InvalidSignature),
+        }
     }
 }

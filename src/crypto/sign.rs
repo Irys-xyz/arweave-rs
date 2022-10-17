@@ -1,8 +1,6 @@
 //! Functionality for creating and verifying signatures and hashing.
 
 use crate::{error::Error, wallet::load::load_from_file};
-use data_encoding::BASE64URL;
-use jsonwebkey as jwk;
 use jsonwebkey::JsonWebKey;
 use ring::{
     digest::{Context, SHA256},
@@ -55,8 +53,8 @@ impl Signer {
         })
     }
 
-    pub fn public_key(&self) -> &[u8] {
-        self.keypair.public_key().as_ref()
+    pub fn public_key(&self) -> Base64 {
+        Base64(self.keypair.public_key().as_ref().to_vec())
     }
 
     pub fn keypair_modulus(&self) -> Result<Base64, Error> {
@@ -75,7 +73,7 @@ impl Signer {
         Ok(wallet_address)
     }
 
-    pub fn sign(&self, message: &[u8]) -> Result<Vec<u8>, Error> {
+    pub fn sign(&self, message: &[u8]) -> Result<Base64, Error> {
         let mut signature = vec![0; self.keypair.public_modulus_len()];
         self.keypair
             .sign(
@@ -85,12 +83,12 @@ impl Signer {
                 &mut signature,
             )
             .unwrap();
-        Ok(signature)
+        Ok(Base64(signature))
     }
 
-    pub fn verify(&self, pubk: &[u8], signature: &[u8], message: &[u8]) -> Result<(), Error> {
+    pub fn verify(&self, pub_key: &[u8], message: &[u8], signature: &[u8]) -> Result<(), Error> {
         let public_key =
-            signature::UnparsedPublicKey::new(&signature::RSA_PSS_2048_8192_SHA256, pubk);
+            signature::UnparsedPublicKey::new(&signature::RSA_PSS_2048_8192_SHA256, pub_key);
         match public_key.verify(message, signature) {
             Ok(_) => Ok(()),
             Err(_) => Err(Error::InvalidSignature),
@@ -107,7 +105,7 @@ impl Signer {
 mod tests {
     use std::{path::PathBuf, str::FromStr};
 
-    use crate::{crypto::sign::Signer, error};
+    use crate::{crypto::{sign::Signer, base64::Base64}, error};
 
     #[test]
     fn test_default_keypair() {
@@ -121,10 +119,15 @@ mod tests {
 
     #[test]
     fn test_sign_verify() -> Result<(), error::Error> {
-        let message = b"hello";
+        let message = Base64([74, 15, 74, 255, 248, 205, 47, 229, 107, 195, 69, 76, 215, 249, 34, 186, 197, 31, 178, 163, 72, 54, 78, 179, 19, 178, 1, 132, 183, 231, 131, 213, 146, 203, 6, 99, 106, 231, 215, 199, 181, 171, 52, 255, 205, 55, 203, 117].to_vec());
         let provider = Signer::default();
-        let signature = provider.sign(b"hello").unwrap();
+        let signature = provider.sign(&message.0).unwrap();
         let pubk = provider.public_key();
-        provider.verify(pubk, &signature, message)
+        println!("pubk: {}", &pubk.to_string());
+        println!("message: {}", &message.to_string());
+        println!("sig: {}", &signature.to_string());
+
+        todo!();
+        provider.verify(&pubk.0, &message.0, &signature.0)
     }
 }
