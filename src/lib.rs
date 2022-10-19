@@ -171,7 +171,7 @@ impl Arweave {
         file_path: PathBuf,
         additional_tags: Vec<Tag<Base64>>,
         fee: u64,
-    ) -> Result<(), Error> {
+    ) -> Result<(String, u64), Error> {
         let mut auto_content_tag = true;
         let mut additional_tags = additional_tags;
 
@@ -207,7 +207,7 @@ impl Arweave {
                 .expect("Could not post transaction")
         };
 
-        Ok(())
+        Ok((id, reward))
     }
 
     async fn post_transaction_chunks(
