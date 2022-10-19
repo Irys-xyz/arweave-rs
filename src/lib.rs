@@ -6,7 +6,6 @@ use futures::{stream, Stream, StreamExt};
 use pretend::StatusCode;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use signer::ArweaveSigner;
 use transaction::{
     client::{TxClient, TxStatus},
     tags::{FromUtf8Strs, Tag},
@@ -23,6 +22,8 @@ pub mod signer;
 pub mod transaction;
 pub mod upload;
 pub mod wallet;
+
+pub use signer::ArweaveSigner;
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
