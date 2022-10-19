@@ -1,29 +1,32 @@
 use std::path::PathBuf;
 
+use data_encoding::BASE64URL;
 use jsonwebkey::JsonWebKey;
-use ring::signature;
+use rand::thread_rng;
+use rsa::{pkcs8::DecodePublicKey, PaddingScheme, PublicKey, RsaPublicKey};
+use sha2::Digest;
 
 use crate::{
-    crypto::{self, base64::Base64, deep_hash::ToItems, Provider, RingProvider},
+    crypto::{base64::Base64, deep_hash::ToItems, Provider},
     error::Error,
     transaction::Tx,
 };
 
 pub struct ArweaveSigner {
-    crypto: Box<dyn crypto::Provider + Send + Sync>,
+    crypto: Box<Provider>,
 }
 
 impl Default for ArweaveSigner {
     fn default() -> Self {
         Self {
-            crypto: Box::new(RingProvider::default()),
+            crypto: Box::new(Provider::default()),
         }
     }
 }
 
 impl ArweaveSigner {
     pub fn verify(pub_key: &[u8], message: &[u8], signature: &[u8]) -> Result<(), Error> {
-        let crypto = RingProvider::default();
+        let crypto = Provider::default();
         match crypto.verify(pub_key, message, signature) {
             true => Ok(()),
             false => Err(Error::InvalidSignature),
@@ -31,7 +34,7 @@ impl ArweaveSigner {
     }
 
     pub fn from_keypair_path(keypair_path: PathBuf) -> Result<ArweaveSigner, Error> {
-        let crypto = RingProvider::from_keypair_path(keypair_path);
+        let crypto = Provider::from_keypair_path(keypair_path);
         let signer = ArweaveSigner {
             crypto: Box::new(crypto),
         };
@@ -59,27 +62,33 @@ impl ArweaveSigner {
             return Err(Error::UnsignedTransaction);
         }
 
-        let crypto = RingProvider::default();
+        let crypto = Provider::default();
         let deep_hash_item = transaction
             .to_deep_hash_item()
             .expect("Could not convert transaction into deep hash item");
         let message = crypto.deep_hash(deep_hash_item);
         let signature = &transaction.signature;
+
         let jwt_str = format!(
             "{{\"kty\":\"RSA\",\"e\":\"AQAB\",\"n\":\"{}\"}}",
-            transaction.owner.to_string()
+            BASE64URL.encode(&transaction.owner.0)
         );
-        let jwk: JsonWebKey = jwt_str.parse().expect("Could not parse JsonWebKey");
-        let public_key = signature::UnparsedPublicKey::new(
-            &signature::RSA_PKCS1_2048_8192_SHA256,
-            transaction.owner.0.clone(),
-        );
+        let jwk: JsonWebKey = jwt_str.parse().unwrap();
 
-        println!("pubk: {:?}", transaction.owner.to_string());
-        println!("message: {}", Base64(message.to_vec()).to_string());
-        println!("sig: {}", &signature.to_string());
-        public_key
-            .verify(&message, &signature.0)
+        let pub_key = RsaPublicKey::from_public_key_der(jwk.key.to_der().as_slice()).unwrap();
+        let mut hasher = sha2::Sha256::new();
+        hasher.update(&message);
+        let hashed = &hasher.finalize();
+
+        let rng = thread_rng();
+        let padding = PaddingScheme::PSS {
+            salt_rng: Box::new(rng),
+            digest: Box::new(sha2::Sha256::new()),
+            salt_len: None,
+        };
+        pub_key
+            .verify(padding, hashed, &signature.0)
+            .map(|_| ())
             .map_err(|_| Error::InvalidSignature)
     }
 
@@ -95,8 +104,8 @@ impl ArweaveSigner {
         self.crypto.keypair_modulus()
     }
 
-    pub fn get_provider(&self) -> &dyn crypto::Provider {
-        &*self.crypto
+    pub fn get_provider(&self) -> &Provider {
+        &self.crypto
     }
 
     pub fn get_public_key(&self) -> Base64 {

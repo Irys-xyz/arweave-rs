@@ -4,13 +4,13 @@ use num::Zero;
 use serde::{ser::SerializeStruct, Deserialize, Serialize, Serializer};
 
 use crate::{
-    crypto::base64::Base64,
     crypto::{
         self,
         deep_hash::{DeepHashItem, ToItems},
         hash::Hasher,
         merkle::{generate_data_root, generate_leaves, resolve_proofs, Node, Proof},
     },
+    crypto::{base64::Base64, Provider},
     currency::Currency,
     error::Error,
     transaction::tags::Tag,
@@ -160,7 +160,7 @@ impl Tx {
 
 impl Tx {
     pub fn new(
-        crypto: &dyn crypto::Provider,
+        crypto: &Provider,
         target: Base64,
         data: Vec<u8>,
         quantity: u128,

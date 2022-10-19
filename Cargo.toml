@@ -26,7 +26,8 @@ pretend = "0.3.0"
 pretend-reqwest = "0.3.0"
 rand = "0.8.5"
 reqwest = { version = "0.11.11", features = ["json"] }
-ring = {version = "0.16.20", features = [ "std" ] }
+rsa = "0.6.1"
+sha2 = "0.10.2"
 serde = { version = "1.0.144", features = ["derive"]}
 serde_json = { version = "1.0.85" }
 thiserror = "1.0.34"

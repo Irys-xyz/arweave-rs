@@ -1,4 +1,4 @@
-use ring::digest::{Context, SHA256, SHA384};
+use sha2::Digest;
 
 pub trait Hasher {
     fn hash_sha256(&self, message: &[u8]) -> [u8; 32];
@@ -44,18 +44,18 @@ impl Hasher for RingHasher {
     }
 
     fn hash_sha256(&self, message: &[u8]) -> [u8; 32] {
-        let mut context = Context::new(&SHA256);
+        let mut context = sha2::Sha256::new();
         context.update(message);
         let mut result: [u8; 32] = [0; 32];
-        result.copy_from_slice(context.finish().as_ref());
+        result.copy_from_slice(context.finalize().as_ref());
         result
     }
 
     fn hash_sha384(&self, message: &[u8]) -> [u8; 48] {
-        let mut context = Context::new(&SHA384);
+        let mut context = sha2::Sha384::new();
         context.update(message);
         let mut result: [u8; 48] = [0; 48];
-        result.copy_from_slice(context.finish().as_ref());
+        result.copy_from_slice(context.finalize().as_ref());
         result
     }
 

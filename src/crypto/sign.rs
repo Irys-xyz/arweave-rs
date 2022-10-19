@@ -1,103 +1,107 @@
 //! Functionality for creating and verifying signatures and hashing.
 
-use crate::{error::Error, wallet::load::load_from_file};
-use jsonwebkey::JsonWebKey;
-use ring::{
-    digest::{Context, SHA256},
-    rand::{self, SecureRandom},
-    signature::{self, KeyPair, RsaKeyPair},
+use crate::error::Error;
+use data_encoding::BASE64URL;
+use jsonwebkey as jwk;
+use rand::thread_rng;
+use rsa::{
+    pkcs8::{DecodePrivateKey, DecodePublicKey},
+    PaddingScheme, PublicKey, PublicKeyParts, RsaPrivateKey, RsaPublicKey,
 };
-use std::fs as fsSync;
-use std::path::PathBuf;
-use tokio::fs;
+use sha2::Digest;
+use std::{fs, path::PathBuf, str::FromStr};
 
 use super::base64::Base64;
 
 /// Struct for for crypto methods.
 pub struct Signer {
-    pub keypair: RsaKeyPair,
-    pub sr: rand::SystemRandom,
+    priv_key: RsaPrivateKey,
 }
 
 impl Default for Signer {
     fn default() -> Self {
-        //TODO: implement new key generation
-        let jwk_parsed = load_from_file("res/test_wallet.json").expect("Valid wallet file");
-        Self {
-            keypair: signature::RsaKeyPair::from_pkcs8(&jwk_parsed.key.as_ref().to_der()).unwrap(),
-            sr: rand::SystemRandom::new(),
-        }
+        let path = PathBuf::from_str("res/test_wallet.json").expect("Could not open .wallet.json");
+        Self::from_keypair_path(path).expect("Could not create signer")
     }
 }
 
 impl Signer {
-    pub async fn from_keypair_path(keypair_path: PathBuf) -> Result<Signer, Error> {
-        let data = fs::read_to_string(keypair_path)
-            .await
-            .expect("Could not open file");
-
-        let jwk_parsed: JsonWebKey = data.parse().expect("Could not parse key");
-        Ok(Self {
-            keypair: signature::RsaKeyPair::from_pkcs8(&jwk_parsed.key.as_ref().to_der()).unwrap(),
-            sr: rand::SystemRandom::new(),
-        })
+    fn new(priv_key: RsaPrivateKey) -> Self {
+        Self { priv_key }
     }
 
-    pub fn from_keypair_path_sync(keypair_path: PathBuf) -> Result<Signer, Error> {
-        let data = fsSync::read_to_string(keypair_path).expect("Could not open file");
+    pub fn from_jwk(jwk: jwk::JsonWebKey) -> Self {
+        let pem = jwk.key.to_pem();
+        let priv_key = RsaPrivateKey::from_pkcs8_pem(&pem).unwrap();
 
-        let jwk_parsed: JsonWebKey = data.parse().expect("Could not parse key");
-        Ok(Self {
-            keypair: signature::RsaKeyPair::from_pkcs8(&jwk_parsed.key.as_ref().to_der()).unwrap(),
-            sr: rand::SystemRandom::new(),
-        })
+        Self::new(priv_key)
+    }
+
+    pub fn from_keypair_path(keypair_path: PathBuf) -> Result<Self, Error> {
+        let data = fs::read_to_string(keypair_path).expect("Could not open file");
+        let jwk_parsed: jwk::JsonWebKey = data.parse().expect("Could not parse key");
+
+        Ok(Self::from_jwk(jwk_parsed))
     }
 
     pub fn public_key(&self) -> Base64 {
-        Base64(self.keypair.public_key().as_ref().to_vec())
+        Base64(self.priv_key.to_public_key().n().to_bytes_be().into())
     }
 
     pub fn keypair_modulus(&self) -> Result<Base64, Error> {
-        let modulus = self
-            .keypair
-            .public_key()
-            .modulus()
-            .big_endian_without_leading_zero();
+        let modulus = self.priv_key.to_public_key().n().to_bytes_be();
         Ok(Base64(modulus.to_vec()))
     }
 
     pub fn wallet_address(&self) -> Result<Base64, Error> {
-        let mut context = Context::new(&SHA256);
+        let mut context = sha2::Sha256::new();
         context.update(&self.keypair_modulus()?.0[..]);
-        let wallet_address = Base64(context.finish().as_ref().to_vec());
+        let wallet_address = Base64(context.finalize().to_vec());
         Ok(wallet_address)
     }
 
     pub fn sign(&self, message: &[u8]) -> Result<Base64, Error> {
-        let mut signature = vec![0; self.keypair.public_modulus_len()];
-        self.keypair
-            .sign(
-                &signature::RSA_PSS_SHA256,
-                &self.sr,
-                message,
-                &mut signature,
-            )
-            .unwrap();
+        let mut hasher = sha2::Sha256::new();
+        hasher.update(&message);
+        let hashed = hasher.finalize();
+
+        let rng = thread_rng();
+        let padding = PaddingScheme::PSS {
+            salt_rng: Box::new(rng),
+            digest: Box::new(sha2::Sha256::new()),
+            salt_len: None,
+        };
+
+        let signature = self
+            .priv_key
+            .sign(padding, &hashed)
+            .map_err(|e| Error::SigningError(e.to_string()))?;
+
         Ok(Base64(signature))
     }
 
     pub fn verify(&self, pub_key: &[u8], message: &[u8], signature: &[u8]) -> Result<(), Error> {
-        let public_key =
-            signature::UnparsedPublicKey::new(&signature::RSA_PSS_2048_8192_SHA256, pub_key);
-        match public_key.verify(message, signature) {
-            Ok(_) => Ok(()),
-            Err(_) => Err(Error::InvalidSignature),
-        }
-    }
+        let jwt_str = format!(
+            "{{\"kty\":\"RSA\",\"e\":\"AQAB\",\"n\":\"{}\"}}",
+            BASE64URL.encode(&pub_key[..])
+        );
+        let jwk: jwk::JsonWebKey = jwt_str.parse().unwrap();
 
-    pub fn fill_rand(&self, dest: &mut [u8]) -> Result<(), Error> {
-        let rand_bytes = self.sr.fill(dest).unwrap();
-        Ok(rand_bytes)
+        let pub_key = RsaPublicKey::from_public_key_der(jwk.key.to_der().as_slice()).unwrap();
+        let mut hasher = sha2::Sha256::new();
+        hasher.update(&message);
+        let hashed = &hasher.finalize();
+
+        let rng = thread_rng();
+        let padding = PaddingScheme::PSS {
+            salt_rng: Box::new(rng),
+            digest: Box::new(sha2::Sha256::new()),
+            salt_len: None,
+        };
+        pub_key
+            .verify(padding, hashed, &signature)
+            .map(|_| ())
+            .map_err(|_| Error::InvalidSignature)
     }
 }
 
@@ -113,7 +117,7 @@ mod tests {
     #[test]
     fn test_default_keypair() {
         let path = PathBuf::from_str("res/test_wallet.json").unwrap();
-        let provider = Signer::from_keypair_path_sync(path).expect("Valid wallet file");
+        let provider = Signer::from_keypair_path(path).expect("Valid wallet file");
         assert_eq!(
             provider.wallet_address().unwrap().to_string(),
             "ggHWyKn0I_CTtsyyt2OR85sPYz9OvKLd9DYIvRQ2ET4"

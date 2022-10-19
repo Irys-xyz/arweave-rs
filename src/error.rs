@@ -50,4 +50,7 @@ pub enum Error {
 
     #[error("Error posting chunk: {0}")]
     PostChunkError(String),
+
+    #[error("Error signin: {0}")]
+    SigningError(String),
 }

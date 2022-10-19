@@ -270,8 +270,7 @@ mod tests {
 
         match arweave.verify_transaction(&tx) {
             Ok(_) => Ok(()),
-            _ => Ok(()) //TODO: implement verification
-            //Err(_) => Err(Error::InvalidSignature),
+            Err(_) => Err(Error::InvalidSignature),
         }
     }
 }
