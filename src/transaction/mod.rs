@@ -1,16 +1,11 @@
-use std::str::FromStr;
-
-use num::Zero;
-use serde::{ser::SerializeStruct, Deserialize, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 
 use crate::{
+    crypto::{base64::Base64, Provider},
     crypto::{
-        self,
-        deep_hash::{DeepHashItem, ToItems},
-        hash::Hasher,
+        hash::{DeepHashItem, ToItems},
         merkle::{generate_data_root, generate_leaves, resolve_proofs, Node, Proof},
     },
-    crypto::{base64::Base64, Provider},
     currency::Currency,
     error::Error,
     transaction::tags::Tag,
@@ -120,7 +115,7 @@ impl Tx {
         Tag::<Base64>::from_utf8_strs("User-Agent", &format!("arweave-rs/{}", VERSION)).unwrap()
     }
 
-    fn generate_merkle(hasher: &dyn Hasher, data: Vec<u8>) -> Result<Tx, Error> {
+    fn generate_merkle(data: Vec<u8>) -> Result<Tx, Error> {
         if data.is_empty() {
             let empty = Base64(vec![]);
             Ok(Tx {
@@ -133,8 +128,8 @@ impl Tx {
                 ..Default::default()
             })
         } else {
-            let mut chunks = generate_leaves(&*hasher, data.clone()).unwrap();
-            let root = generate_data_root(&*hasher, chunks.clone()).unwrap();
+            let mut chunks = generate_leaves(data.clone()).unwrap();
+            let root = generate_data_root(chunks.clone()).unwrap();
             let data_root = Base64(root.id.clone().into_iter().collect());
             let mut proofs = resolve_proofs(root, None).unwrap();
 
@@ -169,11 +164,11 @@ impl Tx {
         other_tags: Vec<Tag<Base64>>,
         auto_content_tag: bool,
     ) -> Result<Self, Error> {
-        if quantity < Zero::zero() {
+        if quantity.lt(&0) {
             return Err(Error::InvalidValueForTx);
         }
 
-        let mut transaction = Tx::generate_merkle(crypto.get_hasher(), data).unwrap();
+        let mut transaction = Tx::generate_merkle(data).unwrap();
         transaction.owner = crypto.keypair_modulus();
 
         let mut tags = vec![Tx::base_tag()];

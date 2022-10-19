@@ -1,6 +1,5 @@
 use std::str::FromStr;
 
-use num::BigUint;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::error::Error;

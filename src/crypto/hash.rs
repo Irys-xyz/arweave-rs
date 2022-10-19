@@ -1,85 +1,116 @@
 use sha2::Digest;
 
-pub trait Hasher {
-    fn hash_sha256(&self, message: &[u8]) -> [u8; 32];
-    fn hash_sha384(&self, message: &[u8]) -> [u8; 48];
-    fn hash_all_sha256(&self, messages: Vec<&[u8]>) -> [u8; 32];
-    fn hash_all_sha384(&self, messages: Vec<&[u8]>) -> [u8; 48];
-    fn copy_into_slice_32(&self, m: &[u8]) -> [u8; 32];
-    fn copy_into_slice_48(&self, m: &[u8]) -> [u8; 48];
-    fn concat_u8_48(&self, left: [u8; 48], right: [u8; 48]) -> [u8; 96];
+use crate::error::Error;
+
+use super::utils::concat_u8_48;
+
+pub fn sha256(message: &[u8]) -> [u8; 32] {
+    let mut context = sha2::Sha256::new();
+    context.update(message);
+    let mut result: [u8; 32] = [0; 32];
+    result.copy_from_slice(context.finalize().as_ref());
+    result
 }
 
-pub struct RingHasher {}
+pub fn sha384(message: &[u8]) -> [u8; 48] {
+    let mut context = sha2::Sha384::new();
+    context.update(message);
+    let mut result: [u8; 48] = [0; 48];
+    result.copy_from_slice(context.finalize().as_ref());
+    result
+}
 
-impl Default for RingHasher {
-    fn default() -> Self {
-        RingHasher {}
+/// Returns a SHA256 hash of the the concatenated SHA256 hashes of a vector of messages.
+pub fn hash_all_sha256(messages: Vec<&[u8]>) -> [u8; 32] {
+    let hash: Vec<u8> = messages
+        .into_iter()
+        .map(|m| sha256(m))
+        .into_iter()
+        .flatten()
+        .collect();
+    let hash = sha256(&hash);
+    hash
+}
+
+/// Returns a SHA384 hash of the the concatenated SHA384 hashes of a vector messages.
+pub fn hash_all_sha384(messages: Vec<&[u8]>) -> [u8; 48] {
+    let hash: Vec<u8> = messages
+        .into_iter()
+        .map(|m| sha384(m))
+        .into_iter()
+        .flatten()
+        .collect();
+    let hash = sha384(&hash);
+    hash
+}
+
+#[derive(Debug)]
+pub enum DeepHashItem {
+    Blob(Vec<u8>),
+    List(Vec<DeepHashItem>),
+}
+
+impl DeepHashItem {
+    pub fn from_item(item: &[u8]) -> DeepHashItem {
+        Self::Blob(item.to_vec())
+    }
+    pub fn from_children(children: Vec<DeepHashItem>) -> DeepHashItem {
+        Self::List(children)
     }
 }
 
-impl RingHasher {
-    pub fn new() -> Self {
-        RingHasher::default()
-    }
+pub trait ToItems<'a, T> {
+    fn to_deep_hash_item(&'a self) -> Result<DeepHashItem, Error>;
 }
 
-impl Hasher for RingHasher {
-    fn copy_into_slice_32(&self, m: &[u8]) -> [u8; 32] {
-        let mut result: [u8; 32] = [0; 32];
-        result.copy_from_slice(m);
-        result
-    }
+/// Calculates data root of transaction in accordance with implementation in [arweave-js](https://github.com/ArweaveTeam/arweave-js/blob/master/src/common/lib/deepHash.ts).
+/// [`DeepHashItem`] is a recursive Enum that allows the function to be applied to
+/// nested [`Vec<u8>`] of arbitrary depth.
+pub fn deep_hash(deep_hash_item: DeepHashItem) -> [u8; 48] {
+    let hash = match deep_hash_item {
+        DeepHashItem::Blob(blob) => {
+            let blob_tag = format!("blob{}", blob.len());
+            hash_all_sha384(vec![blob_tag.as_bytes(), &blob])
+        }
+        DeepHashItem::List(list) => {
+            let list_tag = format!("list{}", list.len());
+            let mut hash = sha384(list_tag.as_bytes());
 
-    fn copy_into_slice_48(&self, m: &[u8]) -> [u8; 48] {
-        let mut result: [u8; 48] = [0; 48];
-        result.copy_from_slice(m);
-        result
-    }
+            for child in list.into_iter() {
+                let child_hash = deep_hash(child);
+                hash = sha384(&concat_u8_48(hash, child_hash));
+            }
+            hash
+        }
+    };
+    hash
+}
+#[cfg(test)]
+mod tests {
+    use std::{fs::File, io::Read, str::FromStr};
 
-    fn concat_u8_48(&self, left: [u8; 48], right: [u8; 48]) -> [u8; 96] {
-        let mut iter = left.into_iter().chain(right);
-        let result = [(); 96].map(|_| iter.next().expect("Could not get concat two arrays"));
-        result
-    }
+    use crate::{
+        crypto::hash::{deep_hash, ToItems},
+        error::Error,
+        transaction::Tx,
+    };
 
-    fn hash_sha256(&self, message: &[u8]) -> [u8; 32] {
-        let mut context = sha2::Sha256::new();
-        context.update(message);
-        let mut result: [u8; 32] = [0; 32];
-        result.copy_from_slice(context.finalize().as_ref());
-        result
-    }
+    #[tokio::test]
+    async fn test_deep_hash() -> Result<(), Error> {
+        let mut file = File::open("res/sample_tx.json").unwrap();
+        let mut data = String::new();
+        file.read_to_string(&mut data).unwrap();
 
-    fn hash_sha384(&self, message: &[u8]) -> [u8; 48] {
-        let mut context = sha2::Sha384::new();
-        context.update(message);
-        let mut result: [u8; 48] = [0; 48];
-        result.copy_from_slice(context.finalize().as_ref());
-        result
-    }
+        let tx = Tx::from_str(&data).unwrap();
 
-    /// Returns a SHA256 hash of the the concatenated SHA256 hashes of a vector of messages.
-    fn hash_all_sha256(&self, messages: Vec<&[u8]>) -> [u8; 32] {
-        let hash: Vec<u8> = messages
-            .into_iter()
-            .map(|m| self.hash_sha256(m))
-            .into_iter()
-            .flatten()
-            .collect();
-        let hash = self.hash_sha256(&hash);
-        hash
-    }
+        let actual_hash = deep_hash(tx.to_deep_hash_item().unwrap());
+        let correct_hash: [u8; 48] = [
+            74, 15, 74, 255, 248, 205, 47, 229, 107, 195, 69, 76, 215, 249, 34, 186, 197, 31, 178,
+            163, 72, 54, 78, 179, 19, 178, 1, 132, 183, 231, 131, 213, 146, 203, 6, 99, 106, 231,
+            215, 199, 181, 171, 52, 255, 205, 55, 203, 117,
+        ];
+        assert_eq!(actual_hash, correct_hash);
 
-    /// Returns a SHA384 hash of the the concatenated SHA384 hashes of a vector messages.
-    fn hash_all_sha384(&self, messages: Vec<&[u8]>) -> [u8; 48] {
-        let hash: Vec<u8> = messages
-            .into_iter()
-            .map(|m| self.hash_sha384(m))
-            .into_iter()
-            .flatten()
-            .collect();
-        let hash = self.hash_sha384(&hash);
-        hash
+        Ok(())
     }
 }

@@ -7,7 +7,7 @@ use rsa::{pkcs8::DecodePublicKey, PaddingScheme, PublicKey, RsaPublicKey};
 use sha2::Digest;
 
 use crate::{
-    crypto::{base64::Base64, deep_hash::ToItems, Provider},
+    crypto::{base64::Base64, hash::ToItems, Provider},
     error::Error,
     transaction::Tx,
 };
@@ -90,10 +90,6 @@ impl ArweaveSigner {
             .verify(padding, hashed, &signature.0)
             .map(|_| ())
             .map_err(|_| Error::InvalidSignature)
-    }
-
-    fn hash_sha256(&self, message: &[u8]) -> [u8; 32] {
-        self.crypto.hash_sha256(message)
     }
 
     pub fn wallet_address(&self) -> Base64 {

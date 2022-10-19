@@ -1,28 +1,25 @@
-use std::{fs, path::PathBuf};
+use std::path::PathBuf;
 
 use self::{
     base64::Base64,
-    deep_hash::DeepHashItem,
-    hash::{Hasher, RingHasher},
+    hash::{deep_hash, sha256, DeepHashItem},
     sign::Signer,
 };
 
 pub mod base64;
-pub mod deep_hash;
 pub mod hash;
 pub mod merkle;
 pub mod sign;
+pub mod utils;
 
 pub struct Provider {
     pub signer: Box<Signer>,
-    pub hasher: Box<RingHasher>,
 }
 
 impl Default for Provider {
     fn default() -> Self {
         Self {
             signer: Box::new(Signer::default()),
-            hasher: Default::default(),
         }
     }
 }
@@ -31,25 +28,20 @@ impl<'a> Provider {
     pub fn from_keypair_path(keypair_path: PathBuf) -> Self {
         let signer = Signer::from_keypair_path(keypair_path)
             .expect("Could not create signer from keypair_path");
-        Provider::new(Box::new(signer), Box::new(RingHasher::default()))
+        Provider::new(Box::new(signer))
     }
 
-    pub fn new(signer: Box<Signer>, hasher: Box<RingHasher>) -> Self {
+    pub fn new(signer: Box<Signer>) -> Self {
         Provider {
             signer,
-            hasher,
             ..Default::default()
         }
     }
 }
 
 impl Provider {
-    pub fn get_hasher(&self) -> &dyn Hasher {
-        &*self.hasher
-    }
-
     pub fn deep_hash(&self, deep_hash_item: DeepHashItem) -> [u8; 48] {
-        deep_hash::deep_hash(self.get_hasher(), deep_hash_item)
+        deep_hash(deep_hash_item)
     }
 
     pub fn sign(&self, message: &[u8]) -> Base64 {
@@ -64,7 +56,7 @@ impl Provider {
     }
 
     pub fn hash_sha256(&self, message: &[u8]) -> [u8; 32] {
-        self.hasher.hash_sha256(message)
+        sha256(message)
     }
 
     pub fn keypair_modulus(&self) -> Base64 {

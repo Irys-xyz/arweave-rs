@@ -1,19 +1,16 @@
-use std::{fs, path::PathBuf, str::FromStr, thread::sleep, time::Duration};
+use std::{fs, path::PathBuf, str::FromStr};
 
 use crypto::base64::Base64;
 use error::Error;
 use futures::{stream, Stream, StreamExt};
 use pretend::StatusCode;
-use reqwest::{
-    header::{ACCEPT, CONTENT_TYPE},
-    Client,
-};
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use signer::ArweaveSigner;
 use transaction::{
     client::{TxClient, TxStatus},
     tags::{FromUtf8Strs, Tag},
-    Chunk, Tx,
+    Tx,
 };
 use upload::Uploader;
 

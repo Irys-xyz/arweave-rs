@@ -3,7 +3,7 @@
 use crate::error::Error;
 use borsh::BorshDeserialize;
 
-use super::hash::Hasher;
+use super::hash::{hash_all_sha256, sha256};
 
 /// Single struct used for original data chunks (Leaves) and branch nodes (hashes of pairs of child nodes).
 #[derive(Debug, PartialEq, Clone)]
@@ -85,7 +85,7 @@ impl Helpers<usize> for usize {
     }
 }
 /// Generates data chunks from which the calculation of root id starts.
-pub fn generate_leaves(hasher: &dyn Hasher, data: Vec<u8>) -> Result<Vec<Node>, Error> {
+pub fn generate_leaves(data: Vec<u8>) -> Result<Vec<Node>, Error> {
     let mut data_chunks: Vec<&[u8]> = data.chunks(MAX_CHUNK_SIZE).collect();
 
     #[allow(unused_assignments)]
@@ -104,10 +104,10 @@ pub fn generate_leaves(hasher: &dyn Hasher, data: Vec<u8>) -> Result<Vec<Node>, 
     let mut leaves = Vec::<Node>::new();
     let mut min_byte_range = 0;
     for chunk in data_chunks.into_iter() {
-        let data_hash = hasher.hash_sha256(chunk);
+        let data_hash = sha256(chunk);
         let max_byte_range = min_byte_range + &chunk.len();
         let offset = max_byte_range.to_note_vec();
-        let id = hasher.hash_all_sha256(vec![&data_hash, &offset]);
+        let id = hash_all_sha256(vec![&data_hash, &offset]);
 
         leaves.push(Node {
             id,
@@ -123,9 +123,9 @@ pub fn generate_leaves(hasher: &dyn Hasher, data: Vec<u8>) -> Result<Vec<Node>, 
 }
 
 /// Hashes together a single branch node from a pair of child nodes.
-pub fn hash_branch(hasher: &dyn Hasher, left: Node, right: Node) -> Result<Node, Error> {
+pub fn hash_branch(left: Node, right: Node) -> Result<Node, Error> {
     let max_byte_range = left.max_byte_range.to_note_vec();
-    let id = hasher.hash_all_sha256(vec![&left.id, &right.id, &max_byte_range]);
+    let id = hash_all_sha256(vec![&left.id, &right.id, &max_byte_range]);
     Ok(Node {
         id,
         data_hash: None,
@@ -137,12 +137,12 @@ pub fn hash_branch(hasher: &dyn Hasher, left: Node, right: Node) -> Result<Node,
 }
 
 /// Builds one layer of branch nodes from a layer of child nodes.
-pub fn build_layer<'a>(hasher: &dyn Hasher, nodes: Vec<Node>) -> Result<Vec<Node>, Error> {
+pub fn build_layer<'a>(nodes: Vec<Node>) -> Result<Vec<Node>, Error> {
     let mut layer = Vec::<Node>::with_capacity(nodes.len() / 2 + (nodes.len() % 2 != 0) as usize);
     let mut nodes_iter = nodes.into_iter();
     while let Some(left) = nodes_iter.next() {
         if let Some(right) = nodes_iter.next() {
-            layer.push(hash_branch(hasher, left, right).unwrap());
+            layer.push(hash_branch(left, right).unwrap());
         } else {
             layer.push(left);
         }
@@ -151,9 +151,9 @@ pub fn build_layer<'a>(hasher: &dyn Hasher, nodes: Vec<Node>) -> Result<Vec<Node
 }
 
 /// Builds all layers from leaves up to single root node.
-pub fn generate_data_root(hasher: &dyn Hasher, mut nodes: Vec<Node>) -> Result<Node, Error> {
+pub fn generate_data_root(mut nodes: Vec<Node>) -> Result<Node, Error> {
     while nodes.len() > 1 {
-        nodes = build_layer(hasher, nodes).unwrap();
+        nodes = build_layer(nodes).unwrap();
     }
     let root = nodes.pop().unwrap();
     Ok(root)
@@ -206,7 +206,6 @@ pub fn resolve_proofs(node: Node, proof: Option<Proof>) -> Result<Vec<Proof>, Er
 
 /// Validates chunk of data against provided [`Proof`].
 pub fn validate_chunk(
-    hasher: &dyn Hasher,
     mut root_id: [u8; HASH_SIZE],
     chunk: Node,
     proof: Proof,
@@ -233,7 +232,7 @@ pub fn validate_chunk(
             // Validate branches.
             for branch_proof in branch_proofs.iter() {
                 // Calculate the id from the proof.
-                let id = hasher.hash_all_sha256(vec![
+                let id = hash_all_sha256(vec![
                     &branch_proof.left_id,
                     &branch_proof.right_id,
                     &branch_proof.offset().to_note_vec(),
@@ -253,7 +252,7 @@ pub fn validate_chunk(
             }
 
             // Validate leaf: both id and data_hash are correct.
-            let id = hasher.hash_all_sha256(vec![&data_hash, &max_byte_range.to_note_vec()]);
+            let id = hash_all_sha256(vec![&data_hash, &max_byte_range.to_note_vec()]);
             if !(id == root_id) & !(data_hash == leaf_proof.data_hash) {
                 return Err(Error::InvalidProof.into());
             }
@@ -267,7 +266,7 @@ pub fn validate_chunk(
 
 #[cfg(test)]
 mod tests {
-    use crate::crypto::{base64::Base64, hash::RingHasher};
+    use crate::crypto::base64::Base64;
 
     use super::*;
     use std::str::FromStr;
@@ -279,8 +278,7 @@ mod tests {
     #[tokio::test]
     async fn test_generate_leaves() -> Result<(), Error> {
         let data = fs::read(ONE_MB_BIN).await.unwrap();
-        let hasher = RingHasher::new();
-        let leaves: Vec<Node> = generate_leaves(&hasher, data).unwrap();
+        let leaves: Vec<Node> = generate_leaves(data).unwrap();
         assert_eq!(
             leaves[1],
             Node {
@@ -304,15 +302,14 @@ mod tests {
     #[tokio::test]
     async fn test_hash_branch() -> Result<(), Error> {
         let data = fs::read(ONE_MB_BIN).await.unwrap();
-        let hasher = RingHasher::new();
-        let leaves: Vec<Node> = generate_leaves(&hasher, data).unwrap();
+        let leaves: Vec<Node> = generate_leaves(data).unwrap();
         let mut nodes_iter = leaves.into_iter();
         let left = nodes_iter.next().unwrap();
         let right = nodes_iter.next().unwrap();
         let left_clone = left.clone();
         let right_clone = right.clone();
 
-        let branch = hash_branch(&hasher, left, right).unwrap();
+        let branch = hash_branch(left, right).unwrap();
         assert_eq!(
             branch,
             Node {
@@ -332,9 +329,8 @@ mod tests {
     #[tokio::test]
     async fn test_build_layer() -> Result<(), Error> {
         let data = fs::read(ONE_MB_BIN).await.unwrap();
-        let hasher = RingHasher::new();
-        let leaves: Vec<Node> = generate_leaves(&hasher, data).unwrap();
-        let layer = build_layer(&hasher, leaves).unwrap();
+        let leaves: Vec<Node> = generate_leaves(data).unwrap();
+        let layer = build_layer(leaves).unwrap();
         assert_eq!(
             layer[0].id,
             [
@@ -355,9 +351,8 @@ mod tests {
             13, 66, 76, 111, 151, 198, 191, 18, 129, 188, 244, 243, 122, 39, 159, 246, 73, 77, 231,
             100, 200, 2, 138, 245, 233, 31, 171, 188, 172, 188, 68, 16,
         ];
-        let hasher = RingHasher::new();
-        let leaves: Vec<Node> = generate_leaves(&hasher, data).unwrap();
-        let root = generate_data_root(&hasher, leaves).unwrap();
+        let leaves: Vec<Node> = generate_leaves(data).unwrap();
+        let root = generate_data_root(leaves).unwrap();
         assert_eq!(root.id, root_actual);
         Ok(())
     }
@@ -366,9 +361,8 @@ mod tests {
     async fn test_generate_proof() -> Result<(), Error> {
         let proof_actual = Base64::from_str("7EAC9FsACQRwe4oIzu7Mza9KjgWKT4toYxDYGjWrCdp0QgsrYS6AueMJ_rM6ZEGslGqjUekzD3WSe7B5_fwipgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAnH6dASdQCigcL43lp0QclqBaSncF4TspuvxoFbn2L18EXpQrP1wkbwdIjSSWQQRt_F31yNvxtc09KkPFtzMKAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAIHiHU9QwOImFzjqSlfxkJJCtSbAox6TbbFhQvlEapSgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAA").unwrap();
         let data = fs::read(REBAR3).await.unwrap();
-        let hasher = RingHasher::new();
-        let leaves: Vec<Node> = generate_leaves(&hasher, data).unwrap();
-        let root = generate_data_root(&hasher, leaves).unwrap();
+        let leaves: Vec<Node> = generate_leaves(data).unwrap();
+        let root = generate_data_root(leaves).unwrap();
 
         let proofs = resolve_proofs(root, None).unwrap();
         assert_eq!(
@@ -383,19 +377,15 @@ mod tests {
     #[tokio::test]
     async fn test_validate_chunks() -> Result<(), Error> {
         let data = fs::read(ONE_MB_BIN).await.unwrap();
-        let hasher = RingHasher::new();
-        let leaves: Vec<Node> = generate_leaves(&hasher, data).unwrap();
-        let root = generate_data_root(&hasher, leaves.clone()).unwrap();
+        let leaves: Vec<Node> = generate_leaves(data).unwrap();
+        let root = generate_data_root(leaves.clone()).unwrap();
         let root_id = root.id.clone();
         let proofs = resolve_proofs(root, None).unwrap();
         println!("proofs_len: {}", proofs.len());
         assert_eq!(leaves.len(), proofs.len());
 
         for (chunk, proof) in leaves.into_iter().zip(proofs.into_iter()) {
-            assert_eq!(
-                (),
-                validate_chunk(&hasher, root_id.clone(), chunk, proof,).unwrap()
-            );
+            assert_eq!((), validate_chunk(root_id.clone(), chunk, proof,).unwrap());
         }
         Ok(())
     }
@@ -405,9 +395,8 @@ mod tests {
         let data_root_actual =
             Base64::from_str("t-GCOnjPWxdox950JsrFMu3nzOE4RktXpMcIlkqSUTw").unwrap();
         let data = fs::read(REBAR3).await.unwrap();
-        let hasher = RingHasher::new();
-        let leaves: Vec<Node> = generate_leaves(&hasher, data).unwrap();
-        let root = generate_data_root(&hasher, leaves.clone()).unwrap();
+        let leaves: Vec<Node> = generate_leaves(data).unwrap();
+        let root = generate_data_root(leaves.clone()).unwrap();
         assert_eq!(root.id.to_vec(), data_root_actual.0);
         Ok(())
     }
@@ -420,9 +409,8 @@ mod tests {
             13, 66, 76, 111, 151, 198, 191, 18, 129, 188, 244, 243, 122, 39, 159, 246, 73, 77, 231,
             100, 200, 2, 138, 245, 233, 31, 171, 188, 172, 188, 68, 16,
         ];
-        let hasher = RingHasher::new();
-        let leaves: Vec<Node> = generate_leaves(&hasher, data).unwrap();
-        let root = generate_data_root(&hasher, leaves).unwrap();
+        let leaves: Vec<Node> = generate_leaves(data).unwrap();
+        let root = generate_data_root(leaves).unwrap();
         println!("{:?} {:?}", root.id, &root_actual);
         assert_eq!(root.id, root_actual);
         Ok(())
@@ -433,9 +421,8 @@ mod tests {
         let data = vec![0; 256 * 1024 + 1];
         // root id as calculate by arweave-js
         let root_actual = Base64::from_str("br1Vtl3TS_NGWdHmYqBh3-MxrlckoluHCZGmUZk-dJc").unwrap();
-        let hasher = RingHasher::new();
-        let leaves: Vec<Node> = generate_leaves(&hasher, data).unwrap();
-        let root = generate_data_root(&hasher, leaves).unwrap();
+        let leaves: Vec<Node> = generate_leaves(data).unwrap();
+        let root = generate_data_root(leaves).unwrap();
         println!("{}", Base64(root.id.to_vec()));
         assert_eq!(root.id, root_actual.0.as_ref());
         Ok(())
@@ -444,8 +431,7 @@ mod tests {
     #[tokio::test]
     async fn test_even_chunks() -> Result<(), Error> {
         let data = fs::read(ONE_MB_BIN).await.unwrap();
-        let hasher = RingHasher::new();
-        let leaves: Vec<Node> = generate_leaves(&hasher, data).unwrap();
+        let leaves: Vec<Node> = generate_leaves(data).unwrap();
         println!("{:?}", leaves[4]);
         assert_eq!(leaves.len(), 8);
         Ok(())
@@ -454,8 +440,7 @@ mod tests {
     #[test]
     fn test_small_last_chunk() -> Result<(), Error> {
         let data = vec![0; 256 * 1024 + 1];
-        let hasher = RingHasher::new();
-        let leaves: Vec<Node> = generate_leaves(&hasher, data).unwrap();
+        let leaves: Vec<Node> = generate_leaves(data).unwrap();
         assert_eq!(131073, leaves[0].max_byte_range);
         assert_eq!(131072, leaves[1].max_byte_range - leaves[1].min_byte_range);
         Ok(())

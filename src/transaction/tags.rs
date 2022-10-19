@@ -1,7 +1,7 @@
 use serde::{ser::SerializeStruct, Deserialize, Serialize, Serializer};
 
 use crate::{
-    crypto::{base64::Base64, deep_hash::DeepHashItem},
+    crypto::{base64::Base64, hash::DeepHashItem},
     error::Error,
 };
 
