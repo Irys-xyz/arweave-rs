@@ -5,9 +5,7 @@ use reqwest::{
     Client,
 };
 
-use crate::{
-    error::Error, transaction::Chunk, ARWEAVE_BASE_URL, CHUNKS_RETRIES, CHUNKS_RETRY_SLEEP,
-};
+use crate::{error::Error, types::Chunk, ARWEAVE_BASE_URL, CHUNKS_RETRIES, CHUNKS_RETRY_SLEEP};
 
 pub struct Uploader {
     url: url::Url,

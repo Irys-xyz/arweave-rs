@@ -9,6 +9,7 @@ use crate::{
     currency::Currency,
     error::Error,
     transaction::tags::Tag,
+    types::Chunk,
     VERSION,
 };
 
@@ -18,21 +19,6 @@ pub mod client;
 pub mod parser;
 pub mod tags;
 
-#[derive(Deserialize, Debug, Default, PartialEq)]
-struct JsonTx {
-    pub format: u8,
-    pub id: Base64,
-    pub last_tx: Base64,
-    pub owner: Base64,
-    pub tags: Vec<Tag<Base64>>,
-    pub target: Base64,
-    pub quantity: String,
-    pub data_root: Base64,
-    pub data: Base64,
-    pub data_size: String,
-    pub reward: String,
-    pub signature: Base64,
-}
 #[derive(Deserialize, Debug, Default, PartialEq)]
 pub struct Tx {
     /* Fields required for signing */
@@ -52,16 +38,6 @@ pub struct Tx {
     pub chunks: Vec<Node>,
     #[serde(skip)]
     pub proofs: Vec<Proof>,
-}
-
-/// Chunk data structure per [Arweave chunk spec](https://docs.arweave.org/developers/server/http-api#upload-chunks).
-#[derive(Serialize, Deserialize, Debug, Default, PartialEq)]
-pub struct Chunk {
-    data_root: Base64,
-    data_size: u64,
-    data_path: Base64,
-    pub offset: usize,
-    chunk: Base64,
 }
 
 impl<'a> ToItems<'a, Tx> for Tx {

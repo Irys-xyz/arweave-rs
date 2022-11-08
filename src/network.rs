@@ -1,5 +1,3 @@
-use std::net::IpAddr;
-
 use pretend::{pretend, resolver::UrlResolver, JsonResult, Pretend, Url};
 use pretend_reqwest::Client as HttpClient;
 

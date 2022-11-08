@@ -47,3 +47,36 @@ pub struct BlockInfo {
     pub hash_list_merkle: Base64,
     pub poa: ProofOfAccess,
 }
+
+#[derive(Deserialize, Debug, Default, PartialEq)]
+pub struct Tx {
+    pub format: u8,
+    pub id: Base64,
+    pub last_tx: Base64,
+    pub owner: Base64,
+    pub tags: Vec<Tag<Base64>>,
+    pub target: Base64,
+    pub quantity: String,
+    pub data_root: Base64,
+    pub data: Base64,
+    pub data_size: String,
+    pub reward: String,
+    pub signature: Base64,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct TxStatus {
+    pub block_height: u128,
+    pub block_indep_hash: Base64,
+    pub number_of_confirmations: u64,
+}
+
+/// Chunk data structure per [Arweave chunk spec](https://docs.arweave.org/developers/server/http-api#upload-chunks).
+#[derive(Serialize, Deserialize, Debug, Default, PartialEq)]
+pub struct Chunk {
+    pub data_root: Base64,
+    pub data_size: u64,
+    pub data_path: Base64,
+    pub offset: usize,
+    pub chunk: Base64,
+}

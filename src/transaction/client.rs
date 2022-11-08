@@ -2,22 +2,15 @@ use reqwest::{
     header::{ACCEPT, CONTENT_TYPE},
     StatusCode,
 };
-use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::{str::FromStr, thread::sleep, time::Duration};
 
 use crate::{
-    crypto::base64::Base64, error::Error, ARWEAVE_BASE_URL, CHUNKS_RETRIES, CHUNKS_RETRY_SLEEP,
+    crypto::base64::Base64, error::Error, types::TxStatus, ARWEAVE_BASE_URL, CHUNKS_RETRIES,
+    CHUNKS_RETRY_SLEEP,
 };
 
 use super::Tx;
-
-#[derive(Serialize, Deserialize)]
-pub struct TxStatus {
-    pub block_height: u128,
-    pub block_indep_hash: Base64,
-    pub number_of_confirmations: u64,
-}
 
 pub struct TxClient {
     client: reqwest::Client,

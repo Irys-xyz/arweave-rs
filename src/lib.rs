@@ -7,10 +7,11 @@ use pretend::StatusCode;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use transaction::{
-    client::{TxClient, TxStatus},
+    client::TxClient,
     tags::{FromUtf8Strs, Tag},
     Tx,
 };
+use types::TxStatus;
 use upload::Uploader;
 
 pub mod client;

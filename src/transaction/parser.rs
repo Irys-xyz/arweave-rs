@@ -4,14 +4,12 @@ use serde::{ser::SerializeStruct, Serialize, Serializer};
 
 use crate::{currency::Currency, error::Error};
 
-use super::{JsonTx, Tx};
+use super::Tx;
+use crate::types::Tx as JsonTx;
 
-impl FromStr for Tx {
-    type Err = Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let json_tx: JsonTx = serde_json::from_str(s).expect("Could not parse json");
-        Ok(Tx {
+impl From<JsonTx> for Tx {
+    fn from(json_tx: JsonTx) -> Self {
+        Tx {
             quantity: Currency::from_str(&json_tx.quantity).unwrap(),
             format: json_tx.format,
             id: json_tx.id,
@@ -26,7 +24,16 @@ impl FromStr for Tx {
             signature: json_tx.signature,
             chunks: vec![],
             proofs: vec![],
-        })
+        }
+    }
+}
+
+impl FromStr for Tx {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let json_tx: JsonTx = serde_json::from_str(s).expect("Could not parse json");
+        Ok(Tx::from(json_tx))
     }
 }
 
