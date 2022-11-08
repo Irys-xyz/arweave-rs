@@ -1,6 +1,7 @@
 use serde::Deserialize;
 
 use crate::{
+    consts::VERSION,
     crypto::{base64::Base64, Provider},
     crypto::{
         hash::{DeepHashItem, ToItems},
@@ -10,7 +11,6 @@ use crate::{
     error::Error,
     transaction::tags::Tag,
     types::Chunk,
-    VERSION,
 };
 
 use self::tags::FromUtf8Strs;

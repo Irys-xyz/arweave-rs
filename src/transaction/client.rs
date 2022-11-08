@@ -6,8 +6,10 @@ use serde_json::json;
 use std::{str::FromStr, thread::sleep, time::Duration};
 
 use crate::{
-    crypto::base64::Base64, error::Error, types::TxStatus, ARWEAVE_BASE_URL, CHUNKS_RETRIES,
-    CHUNKS_RETRY_SLEEP,
+    consts::{ARWEAVE_BASE_URL, CHUNKS_RETRIES, CHUNKS_RETRY_SLEEP},
+    crypto::base64::Base64,
+    error::Error,
+    types::TxStatus,
 };
 
 use super::Tx;

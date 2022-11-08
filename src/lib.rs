@@ -1,5 +1,6 @@
 use std::{fs, path::PathBuf, str::FromStr};
 
+use consts::{ARWEAVE_BASE_URL, MAX_TX_DATA};
 use crypto::base64::Base64;
 use error::Error;
 use futures::{stream, Stream, StreamExt};
@@ -15,6 +16,7 @@ use types::TxStatus;
 use upload::Uploader;
 
 pub mod client;
+pub mod consts;
 pub mod crypto;
 pub mod currency;
 pub mod error;
@@ -26,26 +28,6 @@ pub mod upload;
 pub mod wallet;
 
 pub use signer::ArweaveSigner;
-
-const VERSION: &'static str = env!("CARGO_PKG_VERSION");
-
-/// Block size used for pricing calculations = 256 KB
-pub const BLOCK_SIZE: u64 = 1024 * 256;
-
-/// Maximum data size to send to `tx/` endpoint. Sent to `chunk/` endpoint above this.
-pub const MAX_TX_DATA: u64 = 10_000_000;
-
-/// Multiplier applied to the buffer argument from the cli to determine the maximum number
-/// of simultaneous request to the `chunk/ endpoint`.
-pub const CHUNKS_BUFFER_FACTOR: usize = 20;
-
-/// Number of times to retry posting chunks if not successful.
-pub const CHUNKS_RETRIES: u16 = 10;
-
-/// Number of seconds to wait between retying to post a failed chunk.
-pub const CHUNKS_RETRY_SLEEP: u64 = 1;
-
-const ARWEAVE_BASE_URL: &str = "https://arweave.net/";
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct OraclePrice {
