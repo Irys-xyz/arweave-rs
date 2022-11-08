@@ -48,7 +48,7 @@ pub struct BlockInfo {
     pub poa: ProofOfAccess,
 }
 
-#[derive(Deserialize, Debug, Default, PartialEq)]
+#[derive(Deserialize, Debug, Default, Eq, PartialEq)]
 pub struct Tx {
     pub format: u8,
     pub id: Base64,
@@ -64,7 +64,7 @@ pub struct Tx {
     pub signature: Base64,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct Tag {
     pub name: Base64,
     pub value: Base64,
@@ -77,7 +77,7 @@ pub struct TxStatus {
     pub number_of_confirmations: u64,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Default, Eq, PartialEq)]
 pub struct Chunk {
     pub data_root: Base64,
     pub data_size: u64,

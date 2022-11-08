@@ -17,7 +17,7 @@ pub struct Node {
 }
 
 /// Concatenated ids and offsets for full set of nodes for an original data chunk, starting with the root.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Proof {
     pub offset: usize,
     pub proof: Vec<u8>,
@@ -25,7 +25,7 @@ pub struct Proof {
 
 /// Populated with data from deserialized [`Proof`] for original data chunk (Leaf [`Node`]).
 #[repr(C)]
-#[derive(BorshDeserialize, Debug, PartialEq, Clone)]
+#[derive(BorshDeserialize, Debug, Eq, PartialEq, Clone)]
 pub struct LeafProof {
     data_hash: [u8; HASH_SIZE],
     notepad: [u8; NOTE_SIZE - 8],
@@ -33,7 +33,7 @@ pub struct LeafProof {
 }
 
 /// Populated with data from deserialized [`Proof`] for branch [`Node`] (hash of pair of child nodes).
-#[derive(BorshDeserialize, Debug, PartialEq, Clone)]
+#[derive(BorshDeserialize, Debug, Eq, PartialEq, Clone)]
 pub struct BranchProof {
     left_id: [u8; HASH_SIZE],
     right_id: [u8; HASH_SIZE],
@@ -105,7 +105,7 @@ pub fn generate_leaves(data: Vec<u8>) -> Result<Vec<Node>, Error> {
     let mut min_byte_range = 0;
     for chunk in data_chunks.into_iter() {
         let data_hash = sha256(chunk);
-        let max_byte_range = min_byte_range + &chunk.len();
+        let max_byte_range = min_byte_range + chunk.len();
         let offset = max_byte_range.to_note_vec();
         let id = hash_all_sha256(vec![&data_hash, &offset]);
 
@@ -117,7 +117,7 @@ pub fn generate_leaves(data: Vec<u8>) -> Result<Vec<Node>, Error> {
             left_child: None,
             right_child: None,
         });
-        min_byte_range = min_byte_range + &chunk.len();
+        min_byte_range += chunk.len()
     }
     Ok(leaves)
 }
@@ -137,7 +137,7 @@ pub fn hash_branch(left: Node, right: Node) -> Result<Node, Error> {
 }
 
 /// Builds one layer of branch nodes from a layer of child nodes.
-pub fn build_layer<'a>(nodes: Vec<Node>) -> Result<Vec<Node>, Error> {
+pub fn build_layer(nodes: Vec<Node>) -> Result<Vec<Node>, Error> {
     let mut layer = Vec::<Node>::with_capacity(nodes.len() / 2 + (nodes.len() % 2 != 0) as usize);
     let mut nodes_iter = nodes.into_iter();
     while let Some(left) = nodes_iter.next() {
@@ -181,7 +181,7 @@ pub fn resolve_proofs(node: Node, proof: Option<Proof>) -> Result<Vec<Proof>, Er
             proof.offset = max_byte_range - 1;
             proof.proof.extend(data_hash);
             proof.proof.extend(max_byte_range.to_note_vec());
-            return Ok(vec![proof]);
+            Ok(vec![proof])
         }
         // Branch
         Node {
@@ -191,14 +191,14 @@ pub fn resolve_proofs(node: Node, proof: Option<Proof>) -> Result<Vec<Proof>, Er
             right_child: Some(right_child),
             ..
         } => {
-            proof.proof.extend(left_child.id.clone());
-            proof.proof.extend(right_child.id.clone());
+            proof.proof.extend(left_child.id);
+            proof.proof.extend(right_child.id);
             proof.proof.extend(min_byte_range.to_note_vec());
 
             let mut left_proof = resolve_proofs(*left_child, Some(proof.clone())).unwrap();
             let right_proof = resolve_proofs(*right_child, Some(proof)).unwrap();
             left_proof.extend(right_proof);
-            return Ok(left_proof);
+            Ok(left_proof)
         }
         _ => unreachable!(),
     }
@@ -239,8 +239,8 @@ pub fn validate_chunk(
                 ]);
 
                 // Ensure calculated id correct.
-                if !(id == root_id) {
-                    return Err(Error::InvalidProof.into());
+                if id != root_id {
+                    return Err(Error::InvalidProof);
                 }
 
                 // If the offset from the proof is greater than the offset in the data chunk,
@@ -253,8 +253,8 @@ pub fn validate_chunk(
 
             // Validate leaf: both id and data_hash are correct.
             let id = hash_all_sha256(vec![&data_hash, &max_byte_range.to_note_vec()]);
-            if !(id == root_id) & !(data_hash == leaf_proof.data_hash) {
-                return Err(Error::InvalidProof.into());
+            if id != root_id && data_hash != leaf_proof.data_hash {
+                return Err(Error::InvalidProof);
             }
         }
         _ => {
@@ -379,13 +379,13 @@ mod tests {
         let data = fs::read(ONE_MB_BIN).await.unwrap();
         let leaves: Vec<Node> = generate_leaves(data).unwrap();
         let root = generate_data_root(leaves.clone()).unwrap();
-        let root_id = root.id.clone();
+        let root_id = root.id;
         let proofs = resolve_proofs(root, None).unwrap();
         println!("proofs_len: {}", proofs.len());
         assert_eq!(leaves.len(), proofs.len());
 
         for (chunk, proof) in leaves.into_iter().zip(proofs.into_iter()) {
-            assert_eq!((), validate_chunk(root_id.clone(), chunk, proof,).unwrap());
+            assert!(validate_chunk(root_id, chunk, proof,).is_ok());
         }
         Ok(())
     }
@@ -396,7 +396,7 @@ mod tests {
             Base64::from_str("t-GCOnjPWxdox950JsrFMu3nzOE4RktXpMcIlkqSUTw").unwrap();
         let data = fs::read(REBAR3).await.unwrap();
         let leaves: Vec<Node> = generate_leaves(data).unwrap();
-        let root = generate_data_root(leaves.clone()).unwrap();
+        let root = generate_data_root(leaves).unwrap();
         assert_eq!(root.id.to_vec(), data_root_actual.0);
         Ok(())
     }

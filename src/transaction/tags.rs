@@ -9,7 +9,7 @@ use crate::{
 use super::ToItems;
 
 /// Transaction tag.
-#[derive(Deserialize, Debug, Clone, PartialEq)]
+#[derive(Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct Tag<T> {
     pub name: T,
     pub value: T,

@@ -24,7 +24,7 @@ impl Default for Provider {
     }
 }
 
-impl<'a> Provider {
+impl Provider {
     pub fn from_keypair_path(keypair_path: PathBuf) -> Self {
         let signer = Signer::from_keypair_path(keypair_path)
             .expect("Could not create signer from keypair_path");
@@ -32,10 +32,7 @@ impl<'a> Provider {
     }
 
     pub fn new(signer: Box<Signer>) -> Self {
-        Provider {
-            signer,
-            ..Default::default()
-        }
+        Provider { signer }
     }
 }
 
@@ -49,10 +46,7 @@ impl Provider {
     }
 
     pub fn verify(&self, pub_key: &[u8], message: &[u8], signature: &[u8]) -> bool {
-        match self.signer.verify(pub_key, message, signature) {
-            Ok(_) => true,
-            Err(_) => false,
-        }
+        self.signer.verify(pub_key, message, signature).is_ok()
     }
 
     pub fn hash_sha256(&self, message: &[u8]) -> [u8; 32] {

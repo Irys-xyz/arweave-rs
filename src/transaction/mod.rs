@@ -106,7 +106,7 @@ impl Tx {
         } else {
             let mut chunks = generate_leaves(data.clone()).unwrap();
             let root = generate_data_root(chunks.clone()).unwrap();
-            let data_root = Base64(root.id.clone().into_iter().collect());
+            let data_root = Base64(root.id.into_iter().collect());
             let mut proofs = resolve_proofs(root, None).unwrap();
 
             // Discard the last chunk & proof if it's zero length.

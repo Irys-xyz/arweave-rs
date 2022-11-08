@@ -9,7 +9,7 @@ use crate::types::Tx as JsonTx;
 
 impl From<JsonTx> for Tx {
     fn from(json_tx: JsonTx) -> Self {
-        let tags = json_tx.tags.iter().map(|t| Tag::from(t)).collect();
+        let tags = json_tx.tags.iter().map(Tag::from).collect();
         Tx {
             quantity: Currency::from_str(&json_tx.quantity).unwrap(),
             format: json_tx.format,

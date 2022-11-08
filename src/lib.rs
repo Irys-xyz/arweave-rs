@@ -40,8 +40,6 @@ pub struct OraclePricePair {
 }
 
 pub struct Arweave {
-    name: String,
-    units: String,
     pub base_url: url::Url,
     pub signer: ArweaveSigner,
     tx_client: TxClient,
@@ -52,9 +50,7 @@ impl Default for Arweave {
     fn default() -> Self {
         let arweave_url = url::Url::from_str(ARWEAVE_BASE_URL).unwrap();
         Self {
-            name: Default::default(),
-            units: Default::default(),
-            base_url: arweave_url.clone(),
+            base_url: arweave_url,
             signer: Default::default(),
             tx_client: TxClient::default(),
             uploader: Default::default(),
@@ -74,7 +70,6 @@ impl Arweave {
             signer,
             tx_client,
             uploader,
-            ..Default::default()
         };
         Ok(arweave)
     }
@@ -160,7 +155,7 @@ impl Arweave {
         if let Some(content_type) = mime_guess::from_path(file_path.clone()).first() {
             auto_content_tag = false;
             let content_tag: Tag<Base64> =
-                Tag::from_utf8_strs("Content-Type", &content_type.to_string())?;
+                Tag::from_utf8_strs("Content-Type", content_type.as_ref())?;
             additional_tags.push(content_tag);
         }
 
@@ -198,14 +193,14 @@ impl Arweave {
         chunks_buffer: usize,
     ) -> Result<(String, u64), Error> {
         if signed_transaction.id.0.is_empty() {
-            return Err(error::Error::UnsignedTransaction.into());
+            return Err(error::Error::UnsignedTransaction);
         }
 
         let transaction_with_no_data = signed_transaction.clone_with_no_data()?;
         let (id, reward) = self.post_transaction(&transaction_with_no_data).await?;
 
         let results: Vec<Result<usize, Error>> =
-            Self::upload_transaction_chunks_stream(&self, signed_transaction, chunks_buffer)
+            Self::upload_transaction_chunks_stream(self, signed_transaction, chunks_buffer)
                 .collect()
                 .await;
 
@@ -214,11 +209,11 @@ impl Arweave {
         Ok((id, reward))
     }
 
-    fn upload_transaction_chunks_stream<'a>(
-        arweave: &'a Arweave,
+    fn upload_transaction_chunks_stream(
+        arweave: &Arweave,
         signed_transaction: Tx,
         buffer: usize,
-    ) -> impl Stream<Item = Result<usize, Error>> + 'a {
+    ) -> impl Stream<Item = Result<usize, Error>> + '_ {
         let client = Client::new();
         stream::iter(0..signed_transaction.chunks.len())
             .map(move |i| {

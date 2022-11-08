@@ -24,24 +24,22 @@ pub fn sha384(message: &[u8]) -> [u8; 48] {
 pub fn hash_all_sha256(messages: Vec<&[u8]>) -> [u8; 32] {
     let hash: Vec<u8> = messages
         .into_iter()
-        .map(|m| sha256(m))
+        .map(sha256)
         .into_iter()
         .flatten()
         .collect();
-    let hash = sha256(&hash);
-    hash
+    sha256(&hash)
 }
 
 /// Returns a SHA384 hash of the the concatenated SHA384 hashes of a vector messages.
 pub fn hash_all_sha384(messages: Vec<&[u8]>) -> [u8; 48] {
     let hash: Vec<u8> = messages
         .into_iter()
-        .map(|m| sha384(m))
+        .map(sha384)
         .into_iter()
         .flatten()
         .collect();
-    let hash = sha384(&hash);
-    hash
+    sha384(&hash)
 }
 
 #[derive(Debug)]

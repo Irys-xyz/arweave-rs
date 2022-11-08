@@ -77,7 +77,7 @@ mod tests {
         let client = NetworkInfoClient::new(url);
         let peer_info = block_on(client.peer_info()).unwrap();
 
-        assert!(peer_info.len() > 0);
+        assert!(!peer_info.is_empty());
     }
 
     #[test]
