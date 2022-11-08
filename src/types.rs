@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{crypto::base64::Base64, transaction::tags::Tag};
+use crate::crypto::base64::Base64;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct NetworkInfo {
@@ -39,7 +39,7 @@ pub struct BlockInfo {
     pub tx_root: Base64,
     pub wallet_list: Base64,
     pub reward_addr: Base64,
-    pub tags: Vec<Tag<Base64>>,
+    pub tags: Vec<Tag>,
     pub reward_pool: String,
     pub weave_size: String,
     pub block_size: String,
@@ -54,7 +54,7 @@ pub struct Tx {
     pub id: Base64,
     pub last_tx: Base64,
     pub owner: Base64,
-    pub tags: Vec<Tag<Base64>>,
+    pub tags: Vec<Tag>,
     pub target: Base64,
     pub quantity: String,
     pub data_root: Base64,
@@ -64,6 +64,12 @@ pub struct Tx {
     pub signature: Base64,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct Tag {
+    pub name: Base64,
+    pub value: Base64,
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct TxStatus {
     pub block_height: u128,
@@ -71,7 +77,6 @@ pub struct TxStatus {
     pub number_of_confirmations: u64,
 }
 
-/// Chunk data structure per [Arweave chunk spec](https://docs.arweave.org/developers/server/http-api#upload-chunks).
 #[derive(Serialize, Deserialize, Debug, Default, PartialEq)]
 pub struct Chunk {
     pub data_root: Base64,

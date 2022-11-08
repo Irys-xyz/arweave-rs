@@ -4,18 +4,19 @@ use serde::{ser::SerializeStruct, Serialize, Serializer};
 
 use crate::{currency::Currency, error::Error};
 
-use super::Tx;
+use super::{tags::Tag, Tx};
 use crate::types::Tx as JsonTx;
 
 impl From<JsonTx> for Tx {
     fn from(json_tx: JsonTx) -> Self {
+        let tags = json_tx.tags.iter().map(|t| Tag::from(t)).collect();
         Tx {
             quantity: Currency::from_str(&json_tx.quantity).unwrap(),
             format: json_tx.format,
             id: json_tx.id,
             last_tx: json_tx.last_tx,
             owner: json_tx.owner,
-            tags: json_tx.tags,
+            tags,
             target: json_tx.target,
             data_root: json_tx.data_root,
             data: json_tx.data,

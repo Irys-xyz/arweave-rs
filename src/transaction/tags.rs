@@ -3,6 +3,7 @@ use serde::{ser::SerializeStruct, Deserialize, Serialize, Serializer};
 use crate::{
     crypto::{base64::Base64, hash::DeepHashItem},
     error::Error,
+    types::Tag as BaseTag,
 };
 
 use super::ToItems;
@@ -69,5 +70,14 @@ impl Serialize for Tag<Base64> {
         s.serialize_field("value", &self.value.to_string())?;
 
         s.end()
+    }
+}
+
+impl From<&BaseTag> for Tag<Base64> {
+    fn from(base_tag: &BaseTag) -> Self {
+        Tag {
+            name: base_tag.name.clone(),
+            value: base_tag.value.clone(),
+        }
     }
 }
