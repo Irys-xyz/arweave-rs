@@ -20,6 +20,7 @@ pub mod error;
 pub mod network;
 pub mod signer;
 pub mod transaction;
+pub mod types;
 pub mod upload;
 pub mod wallet;
 

@@ -1,21 +1,12 @@
+use std::net::IpAddr;
+
 use pretend::{pretend, resolver::UrlResolver, JsonResult, Pretend, Url};
 use pretend_reqwest::Client as HttpClient;
-use serde::Deserialize;
 
-use crate::error::Error;
-
-#[derive(Deserialize, Debug)]
-pub struct NetworkInfo {
-    pub network: String,
-    pub version: usize,
-    pub release: usize,
-    pub height: usize,
-    pub current: String,
-    pub blocks: usize,
-    pub peers: usize,
-    pub queue_length: usize,
-    pub node_state_latency: usize,
-}
+use crate::{
+    error::Error,
+    types::{BlockInfo, NetworkInfo},
+};
 
 #[pretend]
 trait NetworkInfoFetch {
@@ -24,6 +15,9 @@ trait NetworkInfoFetch {
 
     #[request(method = "GET", path = "/peers")]
     async fn peer_info(&self) -> pretend::Result<JsonResult<Vec<String>, Error>>;
+
+    #[request(method = "GET", path = "/block/hash/{id}")]
+    async fn block(&self, id: &str) -> pretend::Result<JsonResult<BlockInfo, Error>>;
 }
 
 pub struct NetworkInfoClient(Pretend<HttpClient, UrlResolver>);
@@ -54,17 +48,25 @@ impl NetworkInfoClient {
             JsonResult::Err(err) => Err(err),
         }
     }
+
+    pub async fn block(&self, id: &str) -> Result<BlockInfo, Error> {
+        let response = self.0.block(id).await.expect("Error getting block info");
+        match response {
+            JsonResult::Ok(n) => Ok(n),
+            JsonResult::Err(err) => Err(err),
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::network::NetworkInfoClient;
+    use crate::{network::NetworkInfoClient, ARWEAVE_BASE_URL};
     use pretend::Url;
     use tokio_test::block_on;
 
     #[test]
     fn test_network_info() {
-        let url = Url::parse("https://arweave.net/").unwrap();
+        let url = Url::parse(ARWEAVE_BASE_URL).unwrap();
         let client = NetworkInfoClient::new(url);
         let network_info = block_on(client.network_info()).unwrap();
 
@@ -73,10 +75,21 @@ mod tests {
 
     #[test]
     fn test_peer_info() {
-        let url = Url::parse("https://arweave.net/").unwrap();
+        let url = Url::parse(ARWEAVE_BASE_URL).unwrap();
         let client = NetworkInfoClient::new(url);
         let peer_info = block_on(client.peer_info()).unwrap();
 
         assert!(peer_info.len() > 0);
+    }
+
+    #[test]
+    fn test_block_info() {
+        let block_hash = "g2iYhOVi2FmFvg8MnV5yry6MLi_kMvedk9HwHerIz01PgcWar7tD10JKn2Se6kwR";
+        let url = Url::parse(ARWEAVE_BASE_URL).unwrap();
+        let client = NetworkInfoClient::new(url);
+        let block_info = block_on(client.block(block_hash)).unwrap();
+
+        assert!(block_info.timestamp == 1667863185);
+        assert_eq!(block_info.indep_hash.to_string(), block_hash);
     }
 }
