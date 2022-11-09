@@ -17,3 +17,9 @@ pub const CHUNKS_RETRIES: u16 = 10;
 
 /// Number of seconds to wait between retying to post a failed chunk.
 pub const CHUNKS_RETRY_SLEEP: u64 = 1;
+
+// First block to use V2 block format
+pub const V2_BLOCK_HEIGHT: u32 = 269510;
+
+// First block to use V3 block format
+pub const V3_BLOCK_HEIGHT: u32 = 422250;

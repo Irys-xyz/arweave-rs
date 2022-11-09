@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serde_aux::prelude::*;
 
 use crate::crypto::base64::Base64;
 
@@ -23,31 +24,35 @@ pub struct ProofOfAccess {
     pub chunk: Base64,
 }
 
+//Defined in https://docs.arweave.org/developers/server/http-api#block-format
 #[derive(Serialize, Deserialize, Debug)]
 pub struct BlockInfo {
-    pub hash: Base64,
     pub nonce: Base64,
     pub previous_block: Base64,
     pub timestamp: u64,
-    pub height: u64,
-    pub usd_to_ar_rate: Vec<String>, // pair of numbers
-    pub scheduled_usd_to_ar_rate: Vec<String>,
     pub last_retarget: u64,
+    #[serde(deserialize_with = "deserialize_string_from_number")]
     pub diff: String,
+    pub height: u64,
+    pub hash: Base64,
     pub indep_hash: Base64,
     pub txs: Vec<Base64>,
-    pub tx_root: Base64,
     pub wallet_list: Base64,
     pub reward_addr: Base64,
     pub tags: Vec<Tag>,
-    pub reward_pool: String,
-    pub weave_size: String,
-    pub block_size: String,
-    pub cumulative_diff: String,
-    pub hash_list_merkle: Base64,
+    pub reward_pool: u64,
+    pub weave_size: u64,
+    pub block_size: u64,
+
+    //V2 Stuff
+    pub cumulative_diff: Option<String>,
+    pub hash_list_merkle: Option<Base64>,
+
+    // V3 stuff
+    pub tx_root: Base64,
+    pub tx_tree: Vec<Base64>,
     pub poa: ProofOfAccess,
 }
-
 #[derive(Deserialize, Debug, Default, Eq, PartialEq)]
 pub struct Tx {
     pub format: u8,
