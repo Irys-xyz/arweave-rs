@@ -1,6 +1,7 @@
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 use crate::{
+    consts::VERSION,
     crypto::{base64::Base64, Provider},
     crypto::{
         hash::{DeepHashItem, ToItems},
@@ -9,7 +10,7 @@ use crate::{
     currency::Currency,
     error::Error,
     transaction::tags::Tag,
-    VERSION,
+    types::Chunk,
 };
 
 use self::tags::FromUtf8Strs;
@@ -18,21 +19,6 @@ pub mod client;
 pub mod parser;
 pub mod tags;
 
-#[derive(Deserialize, Debug, Default, PartialEq)]
-struct JsonTx {
-    pub format: u8,
-    pub id: Base64,
-    pub last_tx: Base64,
-    pub owner: Base64,
-    pub tags: Vec<Tag<Base64>>,
-    pub target: Base64,
-    pub quantity: String,
-    pub data_root: Base64,
-    pub data: Base64,
-    pub data_size: String,
-    pub reward: String,
-    pub signature: Base64,
-}
 #[derive(Deserialize, Debug, Default, PartialEq)]
 pub struct Tx {
     /* Fields required for signing */
@@ -52,16 +38,6 @@ pub struct Tx {
     pub chunks: Vec<Node>,
     #[serde(skip)]
     pub proofs: Vec<Proof>,
-}
-
-/// Chunk data structure per [Arweave chunk spec](https://docs.arweave.org/developers/server/http-api#upload-chunks).
-#[derive(Serialize, Deserialize, Debug, Default, PartialEq)]
-pub struct Chunk {
-    data_root: Base64,
-    data_size: u64,
-    data_path: Base64,
-    pub offset: usize,
-    chunk: Base64,
 }
 
 impl<'a> ToItems<'a, Tx> for Tx {
@@ -130,7 +106,7 @@ impl Tx {
         } else {
             let mut chunks = generate_leaves(data.clone()).unwrap();
             let root = generate_data_root(chunks.clone()).unwrap();
-            let data_root = Base64(root.id.clone().into_iter().collect());
+            let data_root = Base64(root.id.into_iter().collect());
             let mut proofs = resolve_proofs(root, None).unwrap();
 
             // Discard the last chunk & proof if it's zero length.

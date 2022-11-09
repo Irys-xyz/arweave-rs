@@ -4,14 +4,8 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::error::Error;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Default)]
 pub struct Base64(pub Vec<u8>);
-
-impl Default for Base64 {
-    fn default() -> Self {
-        Base64(vec![])
-    }
-}
 
 impl std::fmt::Display for Base64 {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {

@@ -2,22 +2,17 @@ use reqwest::{
     header::{ACCEPT, CONTENT_TYPE},
     StatusCode,
 };
-use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::{str::FromStr, thread::sleep, time::Duration};
 
 use crate::{
-    crypto::base64::Base64, error::Error, ARWEAVE_BASE_URL, CHUNKS_RETRIES, CHUNKS_RETRY_SLEEP,
+    consts::{ARWEAVE_BASE_URL, CHUNKS_RETRIES, CHUNKS_RETRY_SLEEP},
+    crypto::base64::Base64,
+    error::Error,
+    types::TxStatus,
 };
 
 use super::Tx;
-
-#[derive(Serialize, Deserialize)]
-pub struct TxStatus {
-    pub block_height: u128,
-    pub block_indep_hash: Base64,
-    pub number_of_confirmations: u64,
-}
 
 pub struct TxClient {
     client: reqwest::Client,
@@ -40,7 +35,7 @@ impl TxClient {
 
     pub async fn post_transaction(&self, signed_transaction: &Tx) -> Result<(Base64, u64), Error> {
         if signed_transaction.id.0.is_empty() {
-            return Err(Error::UnsignedTransaction.into());
+            return Err(Error::UnsignedTransaction);
         }
 
         let mut retries = 0;
@@ -91,7 +86,7 @@ impl TxClient {
     pub async fn get_fee(&self, target: Base64, data: Vec<u8>) -> Result<u64, Error> {
         let url = self
             .base_url
-            .join(&format!("price/{}/{}", data.len(), target.to_string()))
+            .join(&format!("price/{}/{}", data.len(), target))
             .expect("Could not join base_url with /price/{}/{}");
         let winstons_per_bytes = reqwest::get(url)
             .await
@@ -108,7 +103,7 @@ impl TxClient {
             .client
             .get(
                 self.base_url
-                    .join(&format!("tx/{}", id.to_string()))
+                    .join(&format!("tx/{}", id))
                     .expect("Could not join base_url with /tx"),
             )
             .send()
@@ -135,7 +130,7 @@ impl TxClient {
             .client
             .get(
                 self.base_url
-                    .join(&format!("tx/{}/status", id.to_string()))
+                    .join(&format!("tx/{}/status", id))
                     .expect("Could not join base_url with /tx/{}/status"),
             )
             .send()

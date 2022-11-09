@@ -6,7 +6,9 @@ use reqwest::{
 };
 
 use crate::{
-    error::Error, transaction::Chunk, ARWEAVE_BASE_URL, CHUNKS_RETRIES, CHUNKS_RETRY_SLEEP,
+    consts::{ARWEAVE_BASE_URL, CHUNKS_RETRIES, CHUNKS_RETRY_SLEEP},
+    error::Error,
+    types::Chunk,
 };
 
 pub struct Uploader {

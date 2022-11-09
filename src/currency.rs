@@ -8,7 +8,7 @@ use crate::error::Error;
 /// Winstons are a sub unit of the native Arweave network token, AR. There are 10<sup>12</sup> Winstons per AR.
 pub const WINSTONS_PER_AR: u64 = 1_000_000_000_000;
 
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct Currency {
     arweave: u64, //integer
     winston: u64, //decimal
@@ -18,13 +18,13 @@ impl From<u128> for Currency {
     fn from(u: u128) -> Self {
         let s = u.to_string();
         let mut arweave: u64 = 0;
-        let mut winston: u64 = 0;
+        let winston: u64;
         if s.len() <= 12 {
             winston = u as u64;
         } else {
             let d = s.split_at(s.len() - 12);
             winston = (u % (WINSTONS_PER_AR as u128)) as u64;
-            arweave = u64::from_str_radix(d.0, 10).unwrap();
+            arweave = d.0.parse::<u64>().unwrap();
         }
 
         Self { arweave, winston }
@@ -35,15 +35,21 @@ impl FromStr for Currency {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let split: Vec<&str> = s.split(".").collect();
+        let split: Vec<&str> = s.split('.').collect();
         if split.len() == 2 {
             Ok(Currency {
-                arweave: u64::from_str_radix(split[0], 10).expect("Could not parse arweave value"),
-                winston: u64::from_str_radix(split[1], 10).expect("Could not parse winston value"),
+                arweave: split[0]
+                    .parse::<u64>()
+                    .expect("Could not parse arweave value"),
+                winston: split[1]
+                    .parse::<u64>()
+                    .expect("Could not parse winston value"),
             })
         } else {
             Ok(Currency {
-                winston: u64::from_str_radix(split[0], 10).expect("Could not parse winston value"),
+                winston: split[0]
+                    .parse::<u64>()
+                    .expect("Could not parse winston value"),
                 ..Currency::default()
             })
         }

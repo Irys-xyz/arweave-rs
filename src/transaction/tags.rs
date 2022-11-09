@@ -3,12 +3,13 @@ use serde::{ser::SerializeStruct, Deserialize, Serialize, Serializer};
 use crate::{
     crypto::{base64::Base64, hash::DeepHashItem},
     error::Error,
+    types::Tag as BaseTag,
 };
 
 use super::ToItems;
 
 /// Transaction tag.
-#[derive(Deserialize, Debug, Clone, PartialEq)]
+#[derive(Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct Tag<T> {
     pub name: T,
     pub value: T,
@@ -69,5 +70,14 @@ impl Serialize for Tag<Base64> {
         s.serialize_field("value", &self.value.to_string())?;
 
         s.end()
+    }
+}
+
+impl From<&BaseTag> for Tag<Base64> {
+    fn from(base_tag: &BaseTag) -> Self {
+        Tag {
+            name: base_tag.name.clone(),
+            value: base_tag.value.clone(),
+        }
     }
 }

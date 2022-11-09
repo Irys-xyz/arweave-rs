@@ -42,7 +42,7 @@ mod tests {
     use pretend::Url;
     use tokio_test::block_on;
 
-    use crate::wallet::balance::WalletInfoClient;
+    use crate::wallet::WalletInfoClient;
 
     #[test]
     fn test_balance() {

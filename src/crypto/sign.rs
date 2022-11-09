@@ -45,7 +45,7 @@ impl Signer {
     }
 
     pub fn public_key(&self) -> Base64 {
-        Base64(self.priv_key.to_public_key().n().to_bytes_be().into())
+        Base64(self.priv_key.to_public_key().n().to_bytes_be())
     }
 
     pub fn keypair_modulus(&self) -> Result<Base64, Error> {
@@ -83,7 +83,7 @@ impl Signer {
     pub fn verify(&self, pub_key: &[u8], message: &[u8], signature: &[u8]) -> Result<(), Error> {
         let jwt_str = format!(
             "{{\"kty\":\"RSA\",\"e\":\"AQAB\",\"n\":\"{}\"}}",
-            BASE64URL.encode(&pub_key[..])
+            BASE64URL.encode(pub_key)
         );
         let jwk: jwk::JsonWebKey = jwt_str.parse().unwrap();
 
@@ -99,7 +99,7 @@ impl Signer {
             salt_len: None,
         };
         pub_key
-            .verify(padding, hashed, &signature)
+            .verify(padding, hashed, signature)
             .map(|_| ())
             .map_err(|_| Error::InvalidSignature)
     }
