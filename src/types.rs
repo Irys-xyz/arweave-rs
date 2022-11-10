@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use serde_aux::prelude::*;
 
 use crate::crypto::base64::Base64;
 
@@ -16,22 +15,37 @@ pub struct NetworkInfo {
     pub node_state_latency: usize,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct ProofOfAccess {
-    pub option: String,
-    pub tx_path: Base64,
-    pub data_path: Base64,
-    pub chunk: Base64,
+pub enum BlockInfo {
+    V1(BlockInfoV1),
+    V2(BlockInfoV2),
+    V3(BlockInfoV3),
 }
 
-//Defined in https://docs.arweave.org/developers/server/http-api#block-format
 #[derive(Serialize, Deserialize, Debug)]
-pub struct BlockInfo {
+pub struct BlockInfoV1 {
     pub nonce: Base64,
     pub previous_block: Base64,
     pub timestamp: u64,
     pub last_retarget: u64,
-    #[serde(deserialize_with = "deserialize_string_from_number")]
+    pub diff: u64,
+    pub height: u64,
+    pub hash: Base64,
+    pub indep_hash: Base64,
+    pub txs: Vec<Base64>,
+    pub wallet_list: Base64,
+    pub reward_addr: Base64,
+    pub tags: Vec<Tag>,
+    pub reward_pool: u64,
+    pub weave_size: u64,
+    pub block_size: u64,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct BlockInfoV2 {
+    pub nonce: Base64,
+    pub previous_block: Base64,
+    pub timestamp: u64,
+    pub last_retarget: u64,
     pub diff: String,
     pub height: u64,
     pub hash: Base64,
@@ -45,13 +59,44 @@ pub struct BlockInfo {
     pub block_size: u64,
 
     //V2 Stuff
-    pub cumulative_diff: Option<String>,
-    pub hash_list_merkle: Option<Base64>,
+    pub cumulative_diff: String,
+    pub hash_list_merkle: Base64,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct BlockInfoV3 {
+    pub nonce: Base64,
+    pub previous_block: Base64,
+    pub timestamp: u64,
+    pub last_retarget: u64,
+    pub diff: String,
+    pub height: u64,
+    pub hash: Base64,
+    pub indep_hash: Base64,
+    pub txs: Vec<Base64>,
+    pub wallet_list: Base64,
+    pub reward_addr: Base64,
+    pub tags: Vec<Tag>,
+    pub reward_pool: u64,
+    pub weave_size: u64,
+    pub block_size: u64,
+
+    //V2 Stuff
+    pub cumulative_diff: String,
+    pub hash_list_merkle: Base64,
 
     // V3 stuff
     pub tx_root: Base64,
     pub tx_tree: Vec<Base64>,
     pub poa: ProofOfAccess,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ProofOfAccess {
+    pub option: String,
+    pub tx_path: Base64,
+    pub data_path: Base64,
+    pub chunk: Base64,
 }
 #[derive(Deserialize, Debug, Default, Eq, PartialEq)]
 pub struct Tx {

@@ -3,6 +3,7 @@ use pretend_reqwest::Client as HttpClient;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    block::BlockInfoFull,
     error::Error,
     types::{BlockInfo, NetworkInfo},
 };
@@ -19,10 +20,13 @@ trait NetworkInfoFetch {
     async fn peer_info(&self) -> pretend::Result<JsonResult<Vec<String>, Error>>;
 
     #[request(method = "GET", path = "/block/hash/{id}")]
-    async fn block_by_hash(&self, id: &str) -> pretend::Result<JsonResult<BlockInfo, Error>>;
+    async fn block_by_hash(&self, id: &str) -> pretend::Result<JsonResult<BlockInfoFull, Error>>;
 
     #[request(method = "GET", path = "/block/height/{height}")]
-    async fn block_by_height(&self, height: u64) -> pretend::Result<JsonResult<BlockInfo, Error>>;
+    async fn block_by_height(
+        &self,
+        height: u64,
+    ) -> pretend::Result<JsonResult<BlockInfoFull, Error>>;
 }
 
 pub struct NetworkInfoClient(Pretend<HttpClient, UrlResolver>);
@@ -61,7 +65,7 @@ impl NetworkInfoClient {
             .await
             .expect("Error getting block info");
         match response {
-            JsonResult::Ok(n) => Ok(n),
+            JsonResult::Ok(n) => Ok(BlockInfo::from(n)),
             JsonResult::Err(err) => Err(err),
         }
     }
@@ -73,7 +77,7 @@ impl NetworkInfoClient {
             .await
             .expect("Error getting block info");
         match response {
-            JsonResult::Ok(n) => Ok(n),
+            JsonResult::Ok(n) => Ok(BlockInfo::from(n)),
             JsonResult::Err(err) => Err(err),
         }
     }
@@ -111,7 +115,10 @@ mod tests {
         let client = NetworkInfoClient::new(url);
 
         let block_hash_v1 = "ngFDAB2KRhJgJRysuhpp1u65FjBf5WZk99_NyoMx8w6uP0IVjzb93EVkYxmcErdZ";
-        let block_info_v1 = block_on(client.block_by_hash(block_hash_v1)).unwrap();
+        let block_info_v1 = match block_on(client.block_by_hash(block_hash_v1)).unwrap() {
+            crate::types::BlockInfo::V1(b) => b,
+            _ => panic!(),
+        };
         assert_eq!(block_info_v1.nonce, Base64::from_str("AAEBAAABAQAAAQAAAQEBAAEAAAABAQABAQABAAEAAAEBAAAAAQAAAAAAAQAAAQEBAAEBAAEBAQEBAQEAAQEBAAABAQEAAQAAAQABAAABAAAAAAEBAQEBAAABAQEAAAAAAAABAQAAAQAAAQEAAQABAQABAQEAAAABAAABAQABAQEAAAEBAQABAQEBAQEBAAABAQEAAAABAQABAAABAAEAAQEBAQAAAAABAQABAQAAAAAAAAABAQABAAEBAAEAAQABAQABAAEBAQEBAAEAAQABAAABAQEBAQAAAQABAQEBAAEBAQAAAQEBAQABAAEBAQEBAAAAAAABAAEAAAEAAAEAAAEBAAAAAAEAAQABAAAAAAABAQABAQAAAAEBAQAAAAABAAABAAEBAQEAAAAAAQAAAQABAQABAAEAAQABAQAAAAEBAQAAAQAAAAEBAAEBAAEBAQEAAAEBAQAAAQAAAAABAAEAAQEAAQ").unwrap());
         assert_eq!(
             block_info_v1.previous_block,
@@ -120,7 +127,7 @@ mod tests {
         );
         assert_eq!(block_info_v1.timestamp, 1528500720);
         assert_eq!(block_info_v1.last_retarget, 1528500720);
-        assert_eq!(block_info_v1.diff, "31");
+        assert_eq!(block_info_v1.diff, 31);
         assert_eq!(block_info_v1.height, 100);
         assert_eq!(
             block_info_v1.hash,
@@ -132,8 +139,6 @@ mod tests {
             Base64::from_str(block_hash_v1).unwrap()
         );
         assert_eq!(block_info_v1.txs.len(), 1);
-        assert_eq!(block_info_v1.tx_root, Base64::default());
-        assert_eq!(block_info_v1.tx_tree.len(), 0);
         assert_eq!(
             block_info_v1.wallet_list,
             Base64::from_str("ph2FDDuQjNbca34tz7vP9X5Xve2EGJi2ZgFqhMITAdw").unwrap()
@@ -146,13 +151,12 @@ mod tests {
         assert_eq!(block_info_v1.reward_pool, 60770606104);
         assert_eq!(block_info_v1.weave_size, 599058);
         assert_eq!(block_info_v1.block_size, 0);
-        assert_eq!(block_info_v1.poa.option, "1");
-        assert_eq!(block_info_v1.poa.tx_path, Base64::default());
-        assert_eq!(block_info_v1.poa.data_path, Base64::default());
-        assert_eq!(block_info_v1.poa.chunk, Base64::default());
 
         let block_hash_v2 = "5H-hJycMS_PnPOpobXu2CNobRlgqmw4yEMQSc5LeBfS7We63l8HjS-Ek3QaxK8ug";
-        let block_info_v2 = block_on(client.block_by_hash(block_hash_v2)).unwrap();
+        let block_info_v2 = match block_on(client.block_by_hash(block_hash_v2)).unwrap() {
+            crate::types::BlockInfo::V2(b) => b,
+            _ => panic!(),
+        };
         assert_eq!(
             block_info_v2.nonce,
             Base64::from_str("O3IQWXYmxLN_b0w7QyT2GTruaVIGsl-Ybhc6Pl2V20U").unwrap()
@@ -178,8 +182,6 @@ mod tests {
             Base64::from_str(block_hash_v2).unwrap()
         );
         assert_eq!(block_info_v2.txs.len(), 2);
-        assert_eq!(block_info_v2.tx_root, Base64::default());
-        assert_eq!(block_info_v2.tx_tree.len(), 0);
         assert_eq!(
             block_info_v2.wallet_list,
             Base64::from_str("6haahtRP5WVchxPbqtLCqDsFWidhebYJpU5PVB4zQhE").unwrap()
@@ -192,21 +194,18 @@ mod tests {
         assert_eq!(block_info_v2.reward_pool, 0);
         assert_eq!(block_info_v2.weave_size, 21080508475);
         assert_eq!(block_info_v2.block_size, 991723);
-        assert!(block_info_v2.cumulative_diff.is_some());
-        assert_eq!(block_info_v2.cumulative_diff.unwrap(), "616416144");
-        assert!(block_info_v2.hash_list_merkle.is_some());
+        assert_eq!(block_info_v2.cumulative_diff, "616416144");
         assert_eq!(
-            block_info_v2.hash_list_merkle.unwrap(),
+            block_info_v2.hash_list_merkle,
             Base64::from_str("1QVbbLwZHpNMJd8ZghRb13HZfrRu-aIIfzY29r64_yBJAcYv-Kfblv_c2pfKbQBP")
                 .unwrap()
         );
-        assert_eq!(block_info_v2.poa.option, "1");
-        assert_eq!(block_info_v2.poa.tx_path, Base64::default());
-        assert_eq!(block_info_v2.poa.data_path, Base64::default());
-        assert_eq!(block_info_v2.poa.chunk, Base64::default());
 
         let block_hash_v3 = "5VTARz7bwDO4GqviCSI9JXm8_JOtoQwF-QCZm0Gt2gVgwdzSY3brOtOD46bjMz09";
-        let block_info_v3 = block_on(client.block_by_hash(block_hash_v3)).unwrap();
+        let block_info_v3 = match block_on(client.block_by_hash(block_hash_v3)).unwrap() {
+            crate::types::BlockInfo::V3(b) => b,
+            _ => panic!(),
+        };
         assert_eq!(
             block_info_v3.nonce,
             Base64::from_str("W3Jy4wp2LVbDFhGX_hUjRQZCkTdEbKxz45E5OVe52Lo").unwrap()
@@ -250,11 +249,9 @@ mod tests {
         assert_eq!(block_info_v3.reward_pool, 3026104059201252);
         assert_eq!(block_info_v3.weave_size, 407672420044);
         assert_eq!(block_info_v3.block_size, 937455);
-        assert!(block_info_v3.cumulative_diff.is_some());
-        assert_eq!(block_info_v3.cumulative_diff.unwrap(), "99416580392277");
-        assert!(block_info_v3.hash_list_merkle.is_some());
+        assert_eq!(block_info_v3.cumulative_diff, "99416580392277");
         assert_eq!(
-            block_info_v3.hash_list_merkle.unwrap(),
+            block_info_v3.hash_list_merkle,
             Base64::from_str("akSjDrBKPuepJMOhO_S9C-iFp5zn9Glv57HGdN_WPqEToWC0Ukb37Gzs4PDA7oLU")
                 .unwrap()
         );

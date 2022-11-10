@@ -15,6 +15,7 @@ use transaction::{
 use types::TxStatus;
 use upload::Uploader;
 
+pub mod block;
 pub mod client;
 pub mod consts;
 pub mod crypto;
