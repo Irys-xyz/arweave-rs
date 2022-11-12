@@ -20,6 +20,8 @@ pub mod client;
 pub mod consts;
 pub mod crypto;
 pub mod currency;
+pub mod download;
+pub mod dynamic_async_queue;
 pub mod error;
 pub mod network;
 pub mod signer;

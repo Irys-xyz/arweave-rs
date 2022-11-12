@@ -53,4 +53,13 @@ pub enum Error {
 
     #[error("Error signin: {0}")]
     SigningError(String),
+
+    #[error("Url error")]
+    UrlError,
+
+    #[error("Request failed {0}")]
+    RequestFailed(String),
+
+    #[error("Donwload error: Missing Chunks")]
+    MissingChunks,
 }

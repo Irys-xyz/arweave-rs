@@ -62,6 +62,7 @@ dependencies = [
  "infer",
  "jsonwebkey",
  "lazy_static",
+ "log",
  "mime_guess",
  "paris",
  "pretend",
