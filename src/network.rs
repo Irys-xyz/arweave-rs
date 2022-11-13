@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     block::BlockInfoFull,
     error::Error,
+    nodes::Node,
     types::{BlockInfo, NetworkInfo},
 };
 #[derive(Serialize, Deserialize, Debug)]
@@ -17,7 +18,7 @@ trait NetworkInfoFetch {
     async fn network_info(&self) -> pretend::Result<JsonResult<NetworkInfo, Error>>;
 
     #[request(method = "GET", path = "/peers")]
-    async fn peer_info(&self) -> pretend::Result<JsonResult<Vec<String>, Error>>;
+    async fn peers(&self) -> pretend::Result<JsonResult<Vec<String>, Error>>;
 
     #[request(method = "GET", path = "/block/hash/{id}")]
     async fn block_by_hash(&self, id: &str) -> pretend::Result<JsonResult<BlockInfoFull, Error>>;
@@ -50,11 +51,29 @@ impl NetworkInfoClient {
         }
     }
 
-    pub async fn peer_info(&self) -> Result<Vec<String>, Error> {
-        let response = self.0.peer_info().await.expect("Error getting peer info");
-        match response {
-            JsonResult::Ok(n) => Ok(n),
-            JsonResult::Err(err) => Err(err),
+    pub async fn peers(&self, url: Option<Url>) -> Result<Vec<Node>, Error> {
+        match url {
+            Some(url) => {
+                let client = self.0.clone().with_url(url);
+                let response = client.peers().await;
+                match response {
+                    Ok(res) => match res {
+                        JsonResult::Ok(n) => Ok(n.iter().map(|n| Node(n.to_string())).collect()),
+                        JsonResult::Err(err) => Err(err),
+                    },
+                    Err(err) => Err(Error::RequestFailed(err.to_string())),
+                }
+            }
+            None => {
+                let response = self.0.peers().await;
+                match response {
+                    Ok(res) => match res {
+                        JsonResult::Ok(n) => Ok(n.iter().map(|n| Node(n.to_string())).collect()),
+                        JsonResult::Err(err) => Err(err),
+                    },
+                    Err(err) => Err(Error::RequestFailed(err.to_string())),
+                }
+            }
         }
     }
 
@@ -104,7 +123,7 @@ mod tests {
     fn test_peer_info() {
         let url = Url::parse(ARWEAVE_BASE_URL).unwrap();
         let client = NetworkInfoClient::new(url);
-        let peer_info = block_on(client.peer_info()).unwrap();
+        let peer_info = block_on(client.peers(None)).unwrap();
 
         assert!(!peer_info.is_empty());
     }

@@ -1,7 +1,9 @@
 use std::fs;
+use std::time::Duration;
 use std::{path::PathBuf, str::FromStr};
 
 use arweave_rs::crypto::base64::Base64;
+use arweave_rs::nodes::NodeClient;
 use arweave_rs::Arweave;
 use url::Url;
 
@@ -38,15 +40,14 @@ async fn main() {
         .get_tx_status(Base64::from_str(&id).unwrap())
         .await
         .unwrap();
-    dbg!(status, json!(tx_status));
-    */
+        dbg!(status, json!(tx_status));
 
-    let path = PathBuf::from_str(".wallet.json").unwrap();
-    let file_path = PathBuf::from_str("data").unwrap();
+        let path = PathBuf::from_str(".wallet.json").unwrap();
+        let file_path = PathBuf::from_str("data").unwrap();
     let target = Base64::empty();
 
     let arweave =
-        Arweave::from_keypair_path(path, Url::from_str("https://arweave.net").unwrap()).unwrap();
+    Arweave::from_keypair_path(path, Url::from_str("https://arweave.net").unwrap()).unwrap();
     let data = fs::read(file_path.clone()).expect("Could not read file");
 
     let fee = arweave.get_fee(target, data).await.unwrap();
@@ -54,4 +55,14 @@ async fn main() {
     let res = arweave.upload_file_from_path(file_path, vec![], fee).await;
 
     println!("{:?}", res);
+    */
+
+    let url = Url::from_str("https://arweave.net").unwrap();
+    let five_seconds = Duration::new(u64::MAX, 0);
+    let client = NodeClient::new(url);
+    let nodes = client
+        .find_nodes(100, five_seconds, Some(3), Some(100))
+        .await
+        .expect("could not get nodes");
+    println!("{:?}", nodes);
 }

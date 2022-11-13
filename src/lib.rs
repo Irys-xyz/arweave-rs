@@ -24,6 +24,7 @@ pub mod download;
 pub mod dynamic_async_queue;
 pub mod error;
 pub mod network;
+pub mod nodes;
 pub mod signer;
 pub mod transaction;
 pub mod types;

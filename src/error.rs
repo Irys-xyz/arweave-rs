@@ -1,6 +1,8 @@
 use serde::Deserialize;
 use thiserror::Error;
 
+use crate::nodes::Node;
+
 #[derive(Debug, Error, Deserialize)]
 pub enum Error {
     #[error("Error getting oracle price: {0}")]
@@ -62,4 +64,7 @@ pub enum Error {
 
     #[error("Donwload error: Missing Chunks")]
     MissingChunks,
+
+    #[error("Malformed Request")]
+    MalformedRequest,
 }
