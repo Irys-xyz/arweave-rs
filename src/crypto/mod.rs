@@ -12,16 +12,10 @@ pub mod merkle;
 pub mod sign;
 pub mod utils;
 
+#[derive(Default)]
+
 pub struct Provider {
     pub signer: Box<Signer>,
-}
-
-impl Default for Provider {
-    fn default() -> Self {
-        Self {
-            signer: Box::new(Signer::default()),
-        }
-    }
 }
 
 impl Provider {

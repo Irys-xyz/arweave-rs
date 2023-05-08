@@ -1,28 +1,39 @@
+use crate::types::{BlockInfo, NetworkInfo};
 use pretend::{pretend, resolver::UrlResolver, JsonResult, Pretend, Url};
 use pretend_reqwest::Client as HttpClient;
 use serde::{Deserialize, Serialize};
-
-use crate::{
-    error::Error,
-    types::{BlockInfo, NetworkInfo},
-};
+use thiserror::Error;
 #[derive(Serialize, Deserialize, Debug)]
 struct HeightInfo {
     height: u64,
 }
+
+#[derive(Debug, Error, Deserialize)]
+
+pub enum ResponseError {
+    #[error("Unknown error")]
+    UnknownError(String),
+}
+
 #[pretend]
 trait NetworkInfoFetch {
     #[request(method = "GET", path = "/info")]
-    async fn network_info(&self) -> pretend::Result<JsonResult<NetworkInfo, Error>>;
+    async fn network_info(&self) -> pretend::Result<JsonResult<NetworkInfo, ResponseError>>;
 
     #[request(method = "GET", path = "/peers")]
-    async fn peer_info(&self) -> pretend::Result<JsonResult<Vec<String>, Error>>;
+    async fn peer_info(&self) -> pretend::Result<JsonResult<Vec<String>, ResponseError>>;
 
     #[request(method = "GET", path = "/block/hash/{id}")]
-    async fn block_by_hash(&self, id: &str) -> pretend::Result<JsonResult<BlockInfo, Error>>;
+    async fn block_by_hash(
+        &self,
+        id: &str,
+    ) -> pretend::Result<JsonResult<BlockInfo, ResponseError>>;
 
     #[request(method = "GET", path = "/block/height/{height}")]
-    async fn block_by_height(&self, height: u64) -> pretend::Result<JsonResult<BlockInfo, Error>>;
+    async fn block_by_height(
+        &self,
+        height: u64,
+    ) -> pretend::Result<JsonResult<BlockInfo, ResponseError>>;
 }
 
 pub struct NetworkInfoClient(Pretend<HttpClient, UrlResolver>);
@@ -34,7 +45,7 @@ impl NetworkInfoClient {
         Self(pretend)
     }
 
-    pub async fn network_info(&self) -> Result<NetworkInfo, Error> {
+    pub async fn network_info(&self) -> Result<NetworkInfo, ResponseError> {
         let response = self
             .0
             .network_info()
@@ -46,7 +57,7 @@ impl NetworkInfoClient {
         }
     }
 
-    pub async fn peer_info(&self) -> Result<Vec<String>, Error> {
+    pub async fn peer_info(&self) -> Result<Vec<String>, ResponseError> {
         let response = self.0.peer_info().await.expect("Error getting peer info");
         match response {
             JsonResult::Ok(n) => Ok(n),
@@ -54,7 +65,7 @@ impl NetworkInfoClient {
         }
     }
 
-    pub async fn block_by_hash(&self, id: &str) -> Result<BlockInfo, Error> {
+    pub async fn block_by_hash(&self, id: &str) -> Result<BlockInfo, ResponseError> {
         let response = self
             .0
             .block_by_hash(id)
@@ -66,7 +77,7 @@ impl NetworkInfoClient {
         }
     }
 
-    pub async fn block_by_height(&self, id: &str) -> Result<BlockInfo, Error> {
+    pub async fn block_by_height(&self, id: &str) -> Result<BlockInfo, ResponseError> {
         let response = self
             .0
             .block_by_hash(id)

@@ -41,14 +41,14 @@ pub struct OraclePricePair {
 
 pub struct Arweave {
     pub base_url: url::Url,
-    pub signer: ArweaveSigner,
+    pub signer: Option<ArweaveSigner>,
     tx_client: TxClient,
     uploader: Uploader,
 }
 
 impl Default for Arweave {
     fn default() -> Self {
-        let arweave_url = url::Url::from_str(ARWEAVE_BASE_URL).unwrap();
+        let arweave_url = url::Url::from_str(ARWEAVE_BASE_URL).unwrap(); //Checked unwrap
         Self {
             base_url: arweave_url,
             signer: Default::default(),
@@ -58,12 +58,49 @@ impl Default for Arweave {
     }
 }
 
+#[derive(Default)]
+pub struct ArweaveBuilder {
+    base_url: Option<url::Url>,
+    keypair_path: Option<PathBuf>,
+}
+
+impl ArweaveBuilder {
+    pub fn new() -> ArweaveBuilder {
+        Default::default()
+    }
+
+    pub fn base_url(mut self, url: url::Url) -> ArweaveBuilder {
+        self.base_url = Some(url);
+        self
+    }
+
+    pub fn keypair_path(mut self, keypair_path: PathBuf) -> ArweaveBuilder {
+        self.keypair_path = Some(keypair_path);
+        self
+    }
+
+    pub fn build(self) -> Result<Arweave, Error> {
+        let base_url = self
+            .base_url
+            .unwrap_or_else(|| url::Url::from_str(ARWEAVE_BASE_URL).unwrap()); //Checked unwrap
+
+        let signer = match self.keypair_path {
+            Some(p) => Some(ArweaveSigner::from_keypair_path(p)?),
+            None => None,
+        };
+
+        Ok(Arweave {
+            signer,
+            base_url,
+            ..Arweave::default()
+        })
+    }
+}
+
 impl Arweave {
     pub fn from_keypair_path(keypair_path: PathBuf, base_url: url::Url) -> Result<Arweave, Error> {
-        let signer =
-            ArweaveSigner::from_keypair_path(keypair_path).expect("Could not create signer");
-        let tx_client = TxClient::new(reqwest::Client::new(), base_url.clone())
-            .expect("Could not create TxClient");
+        let signer = Some(ArweaveSigner::from_keypair_path(keypair_path)?);
+        let tx_client = TxClient::new(reqwest::Client::new(), base_url.clone())?;
         let uploader = Uploader::new(base_url.clone());
         let arweave = Arweave {
             base_url,
@@ -84,8 +121,12 @@ impl Arweave {
         auto_content_tag: bool,
     ) -> Result<Tx, Error> {
         let last_tx = self.get_last_tx().await;
+        let signer = match &self.signer {
+            Some(s) => s,
+            None => return Err(Error::NoneError("signer".to_owned())),
+        };
         Tx::new(
-            self.signer.get_provider(),
+            signer.get_provider(),
             target,
             data,
             quantity,
@@ -97,11 +138,19 @@ impl Arweave {
     }
 
     pub fn sign_transaction(&self, transaction: Tx) -> Result<Tx, Error> {
-        self.signer.sign_transaction(transaction)
+        let signer = match &self.signer {
+            Some(s) => s,
+            None => return Err(Error::NoneError("signer".to_owned())),
+        };
+        signer.sign_transaction(transaction)
     }
 
-    pub fn sign(&self, message: &[u8]) -> Vec<u8> {
-        self.signer.sign(message).0
+    pub fn sign(&self, message: &[u8]) -> Result<Vec<u8>, Error> {
+        let signer = match &self.signer {
+            Some(s) => s,
+            None => return Err(Error::NoneError("signer".to_owned())),
+        };
+        Ok(signer.sign(message).0)
     }
 
     pub fn verify_transaction(&self, transaction: &Tx) -> Result<(), Error> {
@@ -135,12 +184,20 @@ impl Arweave {
         self.tx_client.get_tx_status(id).await
     }
 
-    pub fn get_pub_key(&self) -> String {
-        self.signer.keypair_modulus().to_string()
+    pub fn get_pub_key(&self) -> Result<String, Error> {
+        let signer = match &self.signer {
+            Some(s) => s,
+            None => return Err(Error::NoneError("signer".to_owned())),
+        };
+        Ok(signer.keypair_modulus().to_string())
     }
 
-    pub fn get_wallet_address(&self) -> String {
-        self.signer.wallet_address().to_string()
+    pub fn get_wallet_address(&self) -> Result<String, Error> {
+        let signer = match &self.signer {
+            Some(s) => s,
+            None => return Err(Error::NoneError("signer".to_owned())),
+        };
+        Ok(signer.wallet_address().to_string())
     }
 
     pub async fn upload_file_from_path(
@@ -159,7 +216,7 @@ impl Arweave {
             additional_tags.push(content_tag);
         }
 
-        let data = fs::read(file_path).expect("Could not read file");
+        let data = fs::read(file_path)?;
         let transaction = self
             .create_transaction(
                 Base64(b"".to_vec()),
@@ -169,19 +226,13 @@ impl Arweave {
                 fee,
                 auto_content_tag,
             )
-            .await
-            .expect("Could not create transaction");
-        let signed_transaction = self
-            .sign_transaction(transaction)
-            .expect("Could not sign tx");
+            .await?;
+        let signed_transaction = self.sign_transaction(transaction)?;
         let (id, reward) = if signed_transaction.data.0.len() > MAX_TX_DATA as usize {
             self.post_transaction_chunks(signed_transaction, 100)
-                .await
-                .expect("Could not post transaction chunks")
+                .await?
         } else {
-            self.post_transaction(&signed_transaction)
-                .await
-                .expect("Could not post transaction")
+            self.post_transaction(&signed_transaction).await?
         };
 
         Ok((id, reward))
@@ -217,7 +268,7 @@ impl Arweave {
         let client = Client::new();
         stream::iter(0..signed_transaction.chunks.len())
             .map(move |i| {
-                let chunk = signed_transaction.get_chunk(i).unwrap();
+                let chunk = signed_transaction.get_chunk(i).unwrap(); //TODO: remove this unwrap
                 arweave
                     .uploader
                     .post_chunk_with_retries(chunk, client.clone())

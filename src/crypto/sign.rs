@@ -62,7 +62,7 @@ impl Signer {
 
     pub fn sign(&self, message: &[u8]) -> Result<Base64, Error> {
         let mut hasher = sha2::Sha256::new();
-        hasher.update(&message);
+        hasher.update(message);
         let hashed = hasher.finalize();
 
         let rng = thread_rng();
