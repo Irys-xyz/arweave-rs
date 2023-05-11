@@ -10,6 +10,7 @@ use crate::{
     crypto::{base64::Base64, hash::ToItems, Provider},
     error::Error,
     transaction::Tx,
+    verify::verify,
 };
 
 #[derive(Default)]
@@ -19,15 +20,11 @@ pub struct ArweaveSigner {
 
 impl ArweaveSigner {
     pub fn verify(pub_key: &[u8], message: &[u8], signature: &[u8]) -> Result<(), Error> {
-        let crypto = Provider::default();
-        match crypto.verify(pub_key, message, signature) {
-            true => Ok(()),
-            false => Err(Error::InvalidSignature),
-        }
+        verify(pub_key, message, signature)
     }
 
     pub fn from_keypair_path(keypair_path: PathBuf) -> Result<ArweaveSigner, Error> {
-        let crypto = Provider::from_keypair_path(keypair_path);
+        let crypto = Provider::from_keypair_path(keypair_path)?;
         let signer = ArweaveSigner {
             crypto: Box::new(crypto),
         };
@@ -35,18 +32,16 @@ impl ArweaveSigner {
     }
 
     pub fn sign_transaction(&self, mut transaction: Tx) -> Result<Tx, Error> {
-        let deep_hash_item = transaction
-            .to_deep_hash_item()
-            .expect("Could not convert transaction into deep hash item");
+        let deep_hash_item = transaction.to_deep_hash_item()?;
         let signature_data = self.crypto.deep_hash(deep_hash_item);
-        let signature = self.crypto.sign(&signature_data);
+        let signature = self.crypto.sign(&signature_data)?;
         let id = self.crypto.hash_sha256(&signature.0);
         transaction.signature = signature;
         transaction.id = Base64(id.to_vec());
         Ok(transaction)
     }
 
-    pub fn sign(&self, message: &[u8]) -> Base64 {
+    pub fn sign(&self, message: &[u8]) -> Result<Base64, Error> {
         self.crypto.sign(message)
     }
 
@@ -56,9 +51,7 @@ impl ArweaveSigner {
         }
 
         let crypto = Provider::default();
-        let deep_hash_item = transaction
-            .to_deep_hash_item()
-            .expect("Could not convert transaction into deep hash item");
+        let deep_hash_item = transaction.to_deep_hash_item()?;
         let message = crypto.deep_hash(deep_hash_item);
         let signature = &transaction.signature;
 
@@ -85,11 +78,11 @@ impl ArweaveSigner {
             .map_err(|_| Error::InvalidSignature)
     }
 
-    pub fn wallet_address(&self) -> Base64 {
+    pub fn wallet_address(&self) -> Result<Base64, Error> {
         self.crypto.wallet_address()
     }
 
-    pub fn keypair_modulus(&self) -> Base64 {
+    pub fn keypair_modulus(&self) -> Result<Base64, Error> {
         self.crypto.keypair_modulus()
     }
 
@@ -97,13 +90,15 @@ impl ArweaveSigner {
         &self.crypto
     }
 
-    pub fn get_public_key(&self) -> Base64 {
+    pub fn get_public_key(&self) -> Result<Base64, Error> {
         self.crypto.public_key()
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::{path::PathBuf, str::FromStr};
+
     use crate::error::Error;
 
     use super::{ArweaveSigner, Base64};
@@ -118,9 +113,10 @@ mod tests {
             ]
             .to_vec(),
         );
-        let signer = ArweaveSigner::default();
-        let signature = signer.sign(&message.0);
-        let pubk = signer.get_public_key();
+        let path = PathBuf::from_str("res/test_wallet.json").unwrap();
+        let signer = ArweaveSigner::from_keypair_path(path)?;
+        let signature = signer.sign(&message.0)?;
+        let pubk = signer.get_public_key()?;
         ArweaveSigner::verify(&pubk.0, &message.0, &signature.0)
     }
 }

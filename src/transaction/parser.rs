@@ -33,7 +33,7 @@ impl FromStr for Tx {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let json_tx: JsonTx = serde_json::from_str(s).expect("Could not parse json");
+        let json_tx: JsonTx = serde_json::from_str(s).map_err(Error::SerdeJsonError)?;
         Ok(Tx::from(json_tx))
     }
 }
