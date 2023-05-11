@@ -1,6 +1,6 @@
 [package]
 name = "arweave-rs"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 description = "A sdk for interacting with Arweave using Rust"
 license = "MIT"
