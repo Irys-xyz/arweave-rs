@@ -65,5 +65,32 @@ let signed_transaction = arweave_connect.sign_transaction(send_transaction)?;
 let result = arweave_connect.post_transaction(&signed_transaction).await?;
 ```
 
+# Basic function
+
+### Wallet
+
+initialization a wallet instance `let wallet = WalletINfoClient::new("https://arweave.net")`
+
+- Get the balance of wallet `wallet.balance("your_address")`
+- Get the last transaction id in address `wallet.last_tx_id("your_address")`
+
+### Transaction
+
+We suppose you have been a `arweave` instance
+
+- Get the HTTP status code of transaction `arweave.get_tx_status(Base64::from_str("transaction_id"))`
+- Get the address of wallet `arweave.get_wallet_address()`
+- Upload the local file by file to the arweave
+
+```rust
+arweave.upload_file_from_path(
+    file_path: PathBuf::from("file_path"),
+    additional_tags: vec![],
+    fee: fee,
+)
+```
+
+
+
 
 
