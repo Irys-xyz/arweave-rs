@@ -1,7 +1,6 @@
-use pretend::{pretend, resolver::UrlResolver, Pretend, Url};
-use pretend_reqwest::Client as HttpClient;
+use pretend::{interceptor::NoopRequestInterceptor, pretend, resolver::UrlResolver, Pretend, Url};
 
-use crate::error::Error;
+use crate::{client::Client, error::Error};
 
 #[pretend]
 trait TransactionInfoFetch {
@@ -12,11 +11,11 @@ trait TransactionInfoFetch {
     async fn wallet_last_tx_id(&self, address: &str) -> pretend::Result<String>;
 }
 
-pub struct WalletInfoClient(Pretend<HttpClient, UrlResolver>);
+pub struct WalletInfoClient(Pretend<Client, UrlResolver, NoopRequestInterceptor>);
 
 impl WalletInfoClient {
     pub fn new(url: Url) -> Self {
-        let client = HttpClient::default();
+        let client = Client::default();
         let pretend = Pretend::for_client(client).with_url(url);
         Self(pretend)
     }
