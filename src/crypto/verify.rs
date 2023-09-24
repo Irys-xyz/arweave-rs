@@ -14,7 +14,7 @@ pub fn verify(pub_key: &[u8], message: &[u8], signature: &[u8]) -> Result<(), Er
 
     let pub_key = RsaPublicKey::from_public_key_der(jwk.key.to_der().as_slice()).unwrap();
     let mut hasher = sha2::Sha256::new();
-    hasher.update(&message);
+    hasher.update(message);
     let hashed = &hasher.finalize();
 
     let rng = thread_rng();
