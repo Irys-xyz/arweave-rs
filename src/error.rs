@@ -1,7 +1,6 @@
-use serde::Deserialize;
 use thiserror::Error;
 
-#[derive(Debug, Error, Deserialize)]
+#[derive(Debug, Error)]
 pub enum Error {
     #[error("Error getting oracle price: {0}")]
     OracleGetPriceError(String),
@@ -51,6 +50,18 @@ pub enum Error {
     #[error("Error posting chunk: {0}")]
     PostChunkError(String),
 
-    #[error("Error signin: {0}")]
+    #[error("Error signing: {0}")]
     SigningError(String),
+
+    #[error("No field present: {0}")]
+    NoneError(String), //TODO: add option::NoneError implementation when released
+
+    #[error("Io Error")]
+    IoError(std::io::Error),
+}
+
+impl From<std::io::Error> for Error {
+    fn from(value: std::io::Error) -> Self {
+        Self::IoError(value)
+    }
 }

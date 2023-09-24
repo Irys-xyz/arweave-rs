@@ -12,16 +12,9 @@ use crate::{
     transaction::Tx,
 };
 
+#[derive(Default)]
 pub struct ArweaveSigner {
     crypto: Box<Provider>,
-}
-
-impl Default for ArweaveSigner {
-    fn default() -> Self {
-        Self {
-            crypto: Box::new(Provider::default()),
-        }
-    }
 }
 
 impl ArweaveSigner {
@@ -77,7 +70,7 @@ impl ArweaveSigner {
 
         let pub_key = RsaPublicKey::from_public_key_der(jwk.key.to_der().as_slice()).unwrap();
         let mut hasher = sha2::Sha256::new();
-        hasher.update(&message);
+        hasher.update(message);
         let hashed = &hasher.finalize();
 
         let rng = thread_rng();
