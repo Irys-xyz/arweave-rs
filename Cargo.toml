@@ -21,10 +21,9 @@ jsonwebkey = { version = "0.3.4", features = [ "pkcs-convert" ] }
 lazy_static = "1.4.0"
 mime_guess = "2.0.3"
 paris = "1.5.13"
-pretend = "0.3.0"
-pretend-reqwest = "0.3.0"
+pretend = "0.4.0"
 rand = "0.8.5"
-reqwest = { version = "0.11.11", features = ["json"] }
+reqwest = { version = "0.11.20", default-features = false, features = ["rustls-tls", "json"] }
 rsa = "0.6.1"
 sha2 = "0.10.2"
 serde = { version = "1.0.144", features = ["derive"]}

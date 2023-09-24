@@ -1,8 +1,10 @@
-use pretend::{pretend, resolver::UrlResolver, JsonResult, Pretend, Url};
-use pretend_reqwest::Client as HttpClient;
+use pretend::{
+    interceptor::NoopRequestInterceptor, pretend, resolver::UrlResolver, JsonResult, Pretend, Url,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    client::Client,
     error::Error,
     types::{BlockInfo, NetworkInfo},
 };
@@ -25,11 +27,11 @@ trait NetworkInfoFetch {
     async fn block_by_height(&self, height: u64) -> pretend::Result<JsonResult<BlockInfo, Error>>;
 }
 
-pub struct NetworkInfoClient(Pretend<HttpClient, UrlResolver>);
+pub struct NetworkInfoClient(Pretend<Client, UrlResolver, NoopRequestInterceptor>);
 
 impl NetworkInfoClient {
     pub fn new(url: Url) -> Self {
-        let client = HttpClient::default();
+        let client = Client::default();
         let pretend = Pretend::for_client(client).with_url(url);
         Self(pretend)
     }
