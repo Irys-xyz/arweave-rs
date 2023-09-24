@@ -1,6 +1,6 @@
 use std::{fs, path::PathBuf, str::FromStr};
 
-use consts::{ARWEAVE_BASE_URL, MAX_TX_DATA};
+use consts::MAX_TX_DATA;
 use crypto::base64::Base64;
 use error::Error;
 use futures::{stream, Stream, StreamExt};
@@ -48,18 +48,6 @@ pub struct Arweave {
     uploader: Uploader,
 }
 
-impl Default for Arweave {
-    fn default() -> Self {
-        let arweave_url = url::Url::from_str(ARWEAVE_BASE_URL).unwrap(); //Checked unwrap
-        Self {
-            base_url: arweave_url,
-            signer: Default::default(),
-            tx_client: TxClient::default(),
-            uploader: Default::default(),
-        }
-    }
-}
-
 #[derive(Default)]
 pub struct ArweaveBuilder {
     base_url: Option<url::Url>,
@@ -84,7 +72,7 @@ impl ArweaveBuilder {
     pub fn build(self) -> Result<Arweave, Error> {
         let base_url = self
             .base_url
-            .unwrap_or_else(|| url::Url::from_str(ARWEAVE_BASE_URL).unwrap()); //Checked unwrap
+            .unwrap_or_else(|| url::Url::from_str(consts::ARWEAVE_BASE_URL).unwrap()); //Checked unwrap
 
         let signer = match self.keypair_path {
             Some(p) => Some(ArweaveSigner::from_keypair_path(p)?),
@@ -94,7 +82,8 @@ impl ArweaveBuilder {
         Ok(Arweave {
             signer,
             base_url,
-            ..Arweave::default()
+            tx_client: Default::default(),
+            uploader: Default::default(),
         })
     }
 }
@@ -191,7 +180,7 @@ impl Arweave {
             Some(s) => s,
             None => return Err(Error::NoneError("signer".to_owned())),
         };
-        Ok(signer.keypair_modulus()?.to_string())
+        Ok(signer.keypair_modulus().to_string())
     }
 
     pub fn get_wallet_address(&self) -> Result<String, Error> {
@@ -199,7 +188,7 @@ impl Arweave {
             Some(s) => s,
             None => return Err(Error::NoneError("signer".to_owned())),
         };
-        Ok(signer.wallet_address()?.to_string())
+        Ok(signer.wallet_address().to_string())
     }
 
     pub async fn upload_file_from_path(

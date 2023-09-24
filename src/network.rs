@@ -106,7 +106,7 @@ impl NetworkInfoClient {
 mod tests {
     use std::str::FromStr;
 
-    use crate::{crypto::base64::Base64, network::NetworkInfoClient, ARWEAVE_BASE_URL};
+    use crate::{consts::ARWEAVE_BASE_URL, crypto::base64::Base64, network::NetworkInfoClient};
     use pretend::Url;
     use tokio_test::block_on;
 

@@ -7,20 +7,22 @@ use rsa::{pkcs8::DecodePublicKey, PaddingScheme, PublicKey, RsaPublicKey};
 use sha2::Digest;
 
 use crate::{
-    crypto::{base64::Base64, hash::ToItems, Provider},
+    crypto::{
+        base64::Base64,
+        hash::{self, ToItems},
+        verify, Provider,
+    },
     error::Error,
     transaction::Tx,
-    verify::verify,
 };
 
-#[derive(Default)]
 pub struct ArweaveSigner {
     crypto: Box<Provider>,
 }
 
 impl ArweaveSigner {
     pub fn verify(pub_key: &[u8], message: &[u8], signature: &[u8]) -> Result<(), Error> {
-        verify(pub_key, message, signature)
+        verify::verify(pub_key, message, signature)
     }
 
     pub fn from_keypair_path(keypair_path: PathBuf) -> Result<ArweaveSigner, Error> {
@@ -50,9 +52,8 @@ impl ArweaveSigner {
             return Err(Error::UnsignedTransaction);
         }
 
-        let crypto = Provider::default();
         let deep_hash_item = transaction.to_deep_hash_item()?;
-        let message = crypto.deep_hash(deep_hash_item);
+        let message = hash::deep_hash(deep_hash_item);
         let signature = &transaction.signature;
 
         let jwt_str = format!(
@@ -78,11 +79,11 @@ impl ArweaveSigner {
             .map_err(|_| Error::InvalidSignature)
     }
 
-    pub fn wallet_address(&self) -> Result<Base64, Error> {
+    pub fn wallet_address(&self) -> Base64 {
         self.crypto.wallet_address()
     }
 
-    pub fn keypair_modulus(&self) -> Result<Base64, Error> {
+    pub fn keypair_modulus(&self) -> Base64 {
         self.crypto.keypair_modulus()
     }
 
@@ -90,7 +91,7 @@ impl ArweaveSigner {
         &self.crypto
     }
 
-    pub fn get_public_key(&self) -> Result<Base64, Error> {
+    pub fn get_public_key(&self) -> Base64 {
         self.crypto.public_key()
     }
 }
@@ -102,6 +103,14 @@ mod tests {
     use crate::error::Error;
 
     use super::{ArweaveSigner, Base64};
+
+    impl Default for ArweaveSigner {
+        fn default() -> Self {
+            Self {
+                crypto: Default::default(),
+            }
+        }
+    }
 
     #[test]
     fn test_sign_verify() -> Result<(), Error> {
@@ -116,7 +125,7 @@ mod tests {
         let path = PathBuf::from_str("res/test_wallet.json").unwrap();
         let signer = ArweaveSigner::from_keypair_path(path)?;
         let signature = signer.sign(&message.0)?;
-        let pubk = signer.get_public_key()?;
+        let pubk = signer.get_public_key();
         ArweaveSigner::verify(&pubk.0, &message.0, &signature.0)
     }
 }
