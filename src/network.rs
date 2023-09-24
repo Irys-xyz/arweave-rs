@@ -1,8 +1,13 @@
-use crate::types::{BlockInfo, NetworkInfo};
-use pretend::{pretend, resolver::UrlResolver, JsonResult, Pretend, Url};
-use pretend_reqwest::Client as HttpClient;
+use crate::{
+    client::Client,
+    types::{BlockInfo, NetworkInfo},
+};
+use pretend::{
+    interceptor::NoopRequestInterceptor, pretend, resolver::UrlResolver, JsonResult, Pretend, Url,
+};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+
 #[derive(Serialize, Deserialize, Debug)]
 struct HeightInfo {
     height: u64,
@@ -39,11 +44,11 @@ trait NetworkInfoFetch {
     ) -> pretend::Result<JsonResult<BlockInfo, ResponseError>>;
 }
 
-pub struct NetworkInfoClient(Pretend<HttpClient, UrlResolver>);
+pub struct NetworkInfoClient(Pretend<Client, UrlResolver, NoopRequestInterceptor>);
 
 impl NetworkInfoClient {
     pub fn new(url: Url) -> Self {
-        let client = HttpClient::default();
+        let client = Client::default();
         let pretend = Pretend::for_client(client).with_url(url);
         Self(pretend)
     }
