@@ -1,5 +1,7 @@
 use std::path::PathBuf;
 
+use crate::error::Error;
+
 use self::{
     base64::Base64,
     hash::{deep_hash, sha256, DeepHashItem},
@@ -15,17 +17,16 @@ pub mod utils;
 #[derive(Default)]
 
 pub struct Provider {
-    pub signer: Box<Signer>,
+    pub signer: Option<Box<Signer>>,
 }
 
 impl Provider {
-    pub fn from_keypair_path(keypair_path: PathBuf) -> Self {
-        let signer = Signer::from_keypair_path(keypair_path)
-            .expect("Could not create signer from keypair_path");
-        Provider::new(Box::new(signer))
+    pub fn from_keypair_path(keypair_path: PathBuf) -> Result<Self, Error> {
+        let signer = Signer::from_keypair_path(keypair_path)?;
+        Ok(Provider::new(Some(Box::new(signer))))
     }
 
-    pub fn new(signer: Box<Signer>) -> Self {
+    pub fn new(signer: Option<Box<Signer>>) -> Self {
         Provider { signer }
     }
 }
@@ -35,39 +36,53 @@ impl Provider {
         deep_hash(deep_hash_item)
     }
 
-    pub fn sign(&self, message: &[u8]) -> Base64 {
-        self.signer.sign(message).expect("Valid message")
-    }
-
-    pub fn verify(&self, pub_key: &[u8], message: &[u8], signature: &[u8]) -> bool {
-        self.signer.verify(pub_key, message, signature).is_ok()
+    pub fn sign(&self, message: &[u8]) -> Result<Base64, Error> {
+        if let Some(signer) = &self.signer {
+            signer.sign(message)
+        } else {
+            Err(Error::NoneError("No private key present".to_owned()))
+        }
     }
 
     pub fn hash_sha256(&self, message: &[u8]) -> [u8; 32] {
         sha256(message)
     }
 
-    pub fn keypair_modulus(&self) -> Base64 {
-        self.signer
-            .keypair_modulus()
-            .expect("Could not get keypair_modulus")
+    pub fn keypair_modulus(&self) -> Result<Base64, Error> {
+        if let Some(signer) = &self.signer {
+            signer.keypair_modulus()
+        } else {
+            Err(Error::NoneError("No private key present".to_owned()))
+        }
     }
 
-    pub fn wallet_address(&self) -> Base64 {
-        self.signer.wallet_address().expect("Could not get pub key")
+    pub fn wallet_address(&self) -> Result<Base64, Error> {
+        if let Some(signer) = &self.signer {
+            signer.wallet_address()
+        } else {
+            Err(Error::NoneError("No private key present".to_owned()))
+        }
     }
 
-    pub fn public_key(&self) -> Base64 {
-        self.signer.public_key()
+    pub fn public_key(&self) -> Result<Base64, Error> {
+        if let Some(signer) = &self.signer {
+            signer.public_key()
+        } else {
+            Err(Error::NoneError("No private key present".to_owned()))
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::{path::PathBuf, str::FromStr};
+
+    use crate::{error::Error, verify::verify};
+
     use super::{base64::Base64, Provider};
 
     #[test]
-    fn test_sign_verify() {
+    fn test_sign_verify() -> Result<(), Error> {
         let message = Base64(
             [
                 9, 214, 233, 210, 242, 45, 194, 247, 28, 234, 14, 86, 105, 40, 41, 251, 52, 39,
@@ -76,9 +91,11 @@ mod tests {
             ]
             .to_vec(),
         );
-        let provider = Provider::default();
-        let signature = provider.sign(&message.0);
-        let pubk = provider.public_key();
-        assert!(provider.verify(&pubk.0, &message.0, &signature.0))
+        let path = PathBuf::from_str("res/test_wallet.json").unwrap();
+        let provider = Provider::from_keypair_path(path)?;
+        let signature = provider.sign(&message.0)?;
+        let pubk = provider.public_key()?;
+        assert!(verify(&pubk.0, &message.0, &signature.0).is_ok());
+        Ok(())
     }
 }

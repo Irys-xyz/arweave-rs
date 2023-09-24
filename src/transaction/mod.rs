@@ -145,7 +145,7 @@ impl Tx {
         }
 
         let mut transaction = Tx::generate_merkle(data).unwrap();
-        transaction.owner = crypto.keypair_modulus();
+        transaction.owner = crypto.keypair_modulus()?;
 
         let mut tags = vec![Tx::base_tag()];
 

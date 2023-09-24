@@ -11,6 +11,9 @@ struct HeightInfo {
 #[derive(Debug, Error, Deserialize)]
 
 pub enum ResponseError {
+    #[error("Internal error")]
+    InternalError(String),
+
     #[error("Unknown error")]
     UnknownError(String),
 }
@@ -50,7 +53,7 @@ impl NetworkInfoClient {
             .0
             .network_info()
             .await
-            .expect("Error getting network info");
+            .map_err(|err| ResponseError::InternalError(err.to_string()))?;
         match response {
             JsonResult::Ok(n) => Ok(n),
             JsonResult::Err(err) => Err(err),
@@ -58,7 +61,11 @@ impl NetworkInfoClient {
     }
 
     pub async fn peer_info(&self) -> Result<Vec<String>, ResponseError> {
-        let response = self.0.peer_info().await.expect("Error getting peer info");
+        let response = self
+            .0
+            .peer_info()
+            .await
+            .map_err(|err| ResponseError::InternalError(err.to_string()))?;
         match response {
             JsonResult::Ok(n) => Ok(n),
             JsonResult::Err(err) => Err(err),
@@ -70,7 +77,7 @@ impl NetworkInfoClient {
             .0
             .block_by_hash(id)
             .await
-            .expect("Error getting block info");
+            .map_err(|err| ResponseError::InternalError(err.to_string()))?;
         match response {
             JsonResult::Ok(n) => Ok(n),
             JsonResult::Err(err) => Err(err),
@@ -82,7 +89,7 @@ impl NetworkInfoClient {
             .0
             .block_by_hash(id)
             .await
-            .expect("Error getting block info");
+            .map_err(|err| ResponseError::InternalError(err.to_string()))?;
         match response {
             JsonResult::Ok(n) => Ok(n),
             JsonResult::Err(err) => Err(err),

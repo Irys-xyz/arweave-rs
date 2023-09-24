@@ -9,20 +9,13 @@ use rsa::{
     PaddingScheme, PublicKey, PublicKeyParts, RsaPrivateKey, RsaPublicKey,
 };
 use sha2::Digest;
-use std::{fs, path::PathBuf, str::FromStr};
+use std::{fs, path::PathBuf};
 
 use super::base64::Base64;
 
 /// Struct for for crypto methods.
 pub struct Signer {
     priv_key: RsaPrivateKey,
-}
-
-impl Default for Signer {
-    fn default() -> Self {
-        let path = PathBuf::from_str("res/test_wallet.json").expect("Could not open .wallet.json");
-        Self::from_keypair_path(path).expect("Could not create signer")
-    }
 }
 
 impl Signer {
@@ -38,14 +31,14 @@ impl Signer {
     }
 
     pub fn from_keypair_path(keypair_path: PathBuf) -> Result<Self, Error> {
-        let data = fs::read_to_string(keypair_path).expect("Could not open file");
-        let jwk_parsed: jwk::JsonWebKey = data.parse().expect("Could not parse key");
+        let data = fs::read_to_string(keypair_path)?;
+        let jwk_parsed: jwk::JsonWebKey = data.parse().map_err(Error::JsonWebKeyError)?;
 
         Ok(Self::from_jwk(jwk_parsed))
     }
 
-    pub fn public_key(&self) -> Base64 {
-        Base64(self.priv_key.to_public_key().n().to_bytes_be())
+    pub fn public_key(&self) -> Result<Base64, Error> {
+        Ok(Base64(self.priv_key.to_public_key().n().to_bytes_be()))
     }
 
     pub fn keypair_modulus(&self) -> Result<Base64, Error> {
@@ -89,7 +82,7 @@ impl Signer {
 
         let pub_key = RsaPublicKey::from_public_key_der(jwk.key.to_der().as_slice()).unwrap();
         let mut hasher = sha2::Sha256::new();
-        hasher.update(&message);
+        hasher.update(message);
         let hashed = &hasher.finalize();
 
         let rng = thread_rng();
@@ -134,9 +127,10 @@ mod tests {
             ]
             .to_vec(),
         );
-        let provider = Signer::default();
+        let path = PathBuf::from_str("res/test_wallet.json").expect("Could not open .wallet.json");
+        let provider = Signer::from_keypair_path(path)?;
         let signature = provider.sign(&message.0).unwrap();
-        let pubk = provider.public_key();
+        let pubk = provider.public_key()?;
         println!("pubk: {}", &pubk.to_string());
         println!("message: {}", &message.to_string());
         println!("sig: {}", &signature.to_string());

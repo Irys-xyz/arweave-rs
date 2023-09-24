@@ -34,22 +34,16 @@ impl From<u128> for Currency {
 impl FromStr for Currency {
     type Err = Error;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    fn from_str(s: &str) -> Result<Self, Error> {
         let split: Vec<&str> = s.split('.').collect();
         if split.len() == 2 {
             Ok(Currency {
-                arweave: split[0]
-                    .parse::<u64>()
-                    .expect("Could not parse arweave value"),
-                winston: split[1]
-                    .parse::<u64>()
-                    .expect("Could not parse winston value"),
+                arweave: split[0].parse::<u64>().map_err(Error::ParseIntError)?,
+                winston: split[1].parse::<u64>().map_err(Error::ParseIntError)?,
             })
         } else {
             Ok(Currency {
-                winston: split[0]
-                    .parse::<u64>()
-                    .expect("Could not parse winston value"),
+                winston: split[0].parse::<u64>().map_err(Error::ParseIntError)?,
                 ..Currency::default()
             })
         }
@@ -69,6 +63,7 @@ impl ToString for Currency {
     }
 }
 
+//TODO: remove unwraps
 impl<'de> Deserialize<'de> for Currency {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where

@@ -14,6 +14,7 @@ use transaction::{
 };
 use types::TxStatus;
 use upload::Uploader;
+use verify::{verify, verify_transaction};
 
 pub mod client;
 pub mod consts;
@@ -25,6 +26,7 @@ pub mod signer;
 pub mod transaction;
 pub mod types;
 pub mod upload;
+mod verify;
 pub mod wallet;
 
 pub use signer::ArweaveSigner;
@@ -120,7 +122,7 @@ impl Arweave {
         fee: u64,
         auto_content_tag: bool,
     ) -> Result<Tx, Error> {
-        let last_tx = self.get_last_tx().await;
+        let last_tx = self.get_last_tx().await?;
         let signer = match &self.signer {
             Some(s) => s,
             None => return Err(Error::NoneError("signer".to_owned())),
@@ -150,15 +152,15 @@ impl Arweave {
             Some(s) => s,
             None => return Err(Error::NoneError("signer".to_owned())),
         };
-        Ok(signer.sign(message).0)
+        Ok(signer.sign(message)?.0)
     }
 
-    pub fn verify_transaction(&self, transaction: &Tx) -> Result<(), Error> {
-        ArweaveSigner::verify_transaction(transaction)
+    pub fn verify_transaction(transaction: &Tx) -> Result<(), Error> {
+        verify_transaction(transaction)
     }
 
     pub fn verify(pub_key: &[u8], message: &[u8], signature: &[u8]) -> Result<(), Error> {
-        ArweaveSigner::verify(pub_key, message, signature)
+        verify(pub_key, message, signature)
     }
 
     pub async fn post_transaction(&self, signed_transaction: &Tx) -> Result<(String, u64), Error> {
@@ -168,7 +170,7 @@ impl Arweave {
             .map(|(id, reward)| (id.to_string(), reward))
     }
 
-    async fn get_last_tx(&self) -> Base64 {
+    async fn get_last_tx(&self) -> Result<Base64, Error> {
         self.tx_client.get_last_tx().await
     }
 
@@ -189,7 +191,7 @@ impl Arweave {
             Some(s) => s,
             None => return Err(Error::NoneError("signer".to_owned())),
         };
-        Ok(signer.keypair_modulus().to_string())
+        Ok(signer.keypair_modulus()?.to_string())
     }
 
     pub fn get_wallet_address(&self) -> Result<String, Error> {
@@ -197,7 +199,7 @@ impl Arweave {
             Some(s) => s,
             None => return Err(Error::NoneError("signer".to_owned())),
         };
-        Ok(signer.wallet_address().to_string())
+        Ok(signer.wallet_address()?.to_string())
     }
 
     pub async fn upload_file_from_path(
@@ -279,11 +281,9 @@ impl Arweave {
 
 #[cfg(test)]
 mod tests {
-    use std::{fs::File, io::Read, path::PathBuf, str::FromStr};
+    use std::{fs::File, io::Read, str::FromStr};
 
-    use pretend::Url;
-
-    use crate::{error::Error, transaction::Tx, Arweave, ARWEAVE_BASE_URL};
+    use crate::{error::Error, transaction::Tx, verify::verify_transaction};
 
     #[test]
     pub fn should_parse_and_verify_valid_tx() -> Result<(), Error> {
@@ -292,11 +292,7 @@ mod tests {
         file.read_to_string(&mut data).unwrap();
         let tx = Tx::from_str(&data).unwrap();
 
-        let path = PathBuf::from_str("res/test_wallet.json").unwrap();
-        let arweave =
-            Arweave::from_keypair_path(path, Url::from_str(ARWEAVE_BASE_URL).unwrap()).unwrap();
-
-        match arweave.verify_transaction(&tx) {
+        match verify_transaction(&tx) {
             Ok(_) => Ok(()),
             Err(_) => Err(Error::InvalidSignature),
         }
