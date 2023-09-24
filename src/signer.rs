@@ -7,7 +7,11 @@ use rsa::{pkcs8::DecodePublicKey, PaddingScheme, PublicKey, RsaPublicKey};
 use sha2::Digest;
 
 use crate::{
-    crypto::{base64::Base64, hash::ToItems, Provider},
+    crypto::{
+        base64::Base64,
+        hash::{self, ToItems},
+        verify, Provider,
+    },
     error::Error,
     transaction::Tx,
 };
@@ -16,21 +20,9 @@ pub struct ArweaveSigner {
     crypto: Box<Provider>,
 }
 
-impl Default for ArweaveSigner {
-    fn default() -> Self {
-        Self {
-            crypto: Box::new(Provider::default()),
-        }
-    }
-}
-
 impl ArweaveSigner {
     pub fn verify(pub_key: &[u8], message: &[u8], signature: &[u8]) -> Result<(), Error> {
-        let crypto = Provider::default();
-        match crypto.verify(pub_key, message, signature) {
-            true => Ok(()),
-            false => Err(Error::InvalidSignature),
-        }
+        verify::verify(pub_key, message, signature)
     }
 
     pub fn from_keypair_path(keypair_path: PathBuf) -> Result<ArweaveSigner, Error> {
@@ -45,7 +37,7 @@ impl ArweaveSigner {
         let deep_hash_item = transaction
             .to_deep_hash_item()
             .expect("Could not convert transaction into deep hash item");
-        let signature_data = self.crypto.deep_hash(deep_hash_item);
+        let signature_data = hash::deep_hash(deep_hash_item);
         let signature = self.crypto.sign(&signature_data);
         let id = self.crypto.hash_sha256(&signature.0);
         transaction.signature = signature;
@@ -62,11 +54,10 @@ impl ArweaveSigner {
             return Err(Error::UnsignedTransaction);
         }
 
-        let crypto = Provider::default();
         let deep_hash_item = transaction
             .to_deep_hash_item()
             .expect("Could not convert transaction into deep hash item");
-        let message = crypto.deep_hash(deep_hash_item);
+        let message = hash::deep_hash(deep_hash_item);
         let signature = &transaction.signature;
 
         let jwt_str = format!(
@@ -114,6 +105,14 @@ mod tests {
     use crate::error::Error;
 
     use super::{ArweaveSigner, Base64};
+
+    impl Default for ArweaveSigner {
+        fn default() -> Self {
+            Self {
+                crypto: Default::default(),
+            }
+        }
+    }
 
     #[test]
     fn test_sign_verify() -> Result<(), Error> {

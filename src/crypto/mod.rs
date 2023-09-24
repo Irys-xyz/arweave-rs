@@ -1,27 +1,16 @@
 use std::path::PathBuf;
 
-use self::{
-    base64::Base64,
-    hash::{deep_hash, sha256, DeepHashItem},
-    sign::Signer,
-};
+use self::{base64::Base64, hash::sha256, sign::Signer};
 
 pub mod base64;
 pub mod hash;
 pub mod merkle;
 pub mod sign;
 pub mod utils;
+pub mod verify;
 
 pub struct Provider {
     pub signer: Box<Signer>,
-}
-
-impl Default for Provider {
-    fn default() -> Self {
-        Self {
-            signer: Box::new(Signer::default()),
-        }
-    }
 }
 
 impl Provider {
@@ -37,16 +26,8 @@ impl Provider {
 }
 
 impl Provider {
-    pub fn deep_hash(&self, deep_hash_item: DeepHashItem) -> [u8; 48] {
-        deep_hash(deep_hash_item)
-    }
-
     pub fn sign(&self, message: &[u8]) -> Base64 {
         self.signer.sign(message).expect("Valid message")
-    }
-
-    pub fn verify(&self, pub_key: &[u8], message: &[u8], signature: &[u8]) -> bool {
-        self.signer.verify(pub_key, message, signature).is_ok()
     }
 
     pub fn hash_sha256(&self, message: &[u8]) -> [u8; 32] {
@@ -70,7 +51,19 @@ impl Provider {
 
 #[cfg(test)]
 mod tests {
+    use tokio_test::assert_ok;
+
+    use crate::crypto::verify;
+
     use super::{base64::Base64, Provider};
+
+    impl Default for Provider {
+        fn default() -> Self {
+            Self {
+                signer: Default::default(),
+            }
+        }
+    }
 
     #[test]
     fn test_sign_verify() {
@@ -85,6 +78,6 @@ mod tests {
         let provider = Provider::default();
         let signature = provider.sign(&message.0);
         let pubk = provider.public_key();
-        assert!(provider.verify(&pubk.0, &message.0, &signature.0))
+        assert_ok!(verify::verify(&pubk.0, &message.0, &signature.0))
     }
 }

@@ -1,6 +1,6 @@
-use std::{fs, path::PathBuf, str::FromStr};
+use std::{fs, path::PathBuf};
 
-use consts::{ARWEAVE_BASE_URL, MAX_TX_DATA};
+use consts::MAX_TX_DATA;
 use crypto::base64::Base64;
 use error::Error;
 use futures::{stream, Stream, StreamExt};
@@ -44,18 +44,6 @@ pub struct Arweave {
     pub signer: ArweaveSigner,
     tx_client: TxClient,
     uploader: Uploader,
-}
-
-impl Default for Arweave {
-    fn default() -> Self {
-        let arweave_url = url::Url::from_str(ARWEAVE_BASE_URL).unwrap();
-        Self {
-            base_url: arweave_url,
-            signer: Default::default(),
-            tx_client: TxClient::default(),
-            uploader: Default::default(),
-        }
-    }
 }
 
 impl Arweave {
@@ -232,7 +220,7 @@ mod tests {
 
     use pretend::Url;
 
-    use crate::{error::Error, transaction::Tx, Arweave, ARWEAVE_BASE_URL};
+    use crate::{consts::ARWEAVE_BASE_URL, error::Error, transaction::Tx, Arweave};
 
     #[test]
     pub fn should_parse_and_verify_valid_tx() -> Result<(), Error> {
