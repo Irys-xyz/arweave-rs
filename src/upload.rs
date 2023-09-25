@@ -50,7 +50,7 @@ impl Uploader {
     }
 
     pub async fn post_chunk(&self, chunk: &Chunk, client: &Client) -> Result<usize, Error> {
-        let url = self.url.join("chunk").expect("Could not join url");
+        let url = self.url.join("chunk").map_err(Error::UrlParseError)?;
         // let client = reqwest::Client::new();
 
         let resp = client

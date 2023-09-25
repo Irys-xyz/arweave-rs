@@ -37,7 +37,7 @@ impl Base64 {
         Ok(Self(str.as_bytes().to_vec()))
     }
     pub fn to_utf8_string(&self) -> Result<String, Error> {
-        Ok(String::from_utf8(self.0.clone()).expect("Could not convert from utf8"))
+        String::from_utf8(self.0.clone()).map_err(Error::FromUtf8Error)
     }
 
     pub fn empty() -> Self {
@@ -51,6 +51,7 @@ impl Serialize for Base64 {
     }
 }
 
+//TODO: remove unwraps
 impl<'de> Deserialize<'de> for Base64 {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         struct Vis;

@@ -1,7 +1,9 @@
-use serde::Deserialize;
-use thiserror::Error;
+use std::string::FromUtf8Error;
 
-#[derive(Debug, Error, Deserialize)]
+use thiserror::Error;
+use url::ParseError;
+
+#[derive(Debug, Error)]
 pub enum Error {
     #[error("Error getting oracle price: {0}")]
     OracleGetPriceError(String),
@@ -51,6 +53,39 @@ pub enum Error {
     #[error("Error posting chunk: {0}")]
     PostChunkError(String),
 
-    #[error("Error signin: {0}")]
+    #[error("Error signing: {0}")]
     SigningError(String),
+
+    #[error("No field present: {0}")]
+    NoneError(String), //TODO: add option::NoneError implementation when released
+
+    #[error("Io Error")]
+    IoError(std::io::Error),
+
+    #[error("ParseIntError")]
+    ParseIntError(std::num::ParseIntError),
+
+    #[error("UrlParseError")]
+    UrlParseError(ParseError),
+
+    #[error("FromUtf8Error")]
+    FromUtf8Error(FromUtf8Error),
+
+    #[error("FromUtf8Error")]
+    JsonWebKeyError(jsonwebkey::Error),
+
+    #[error("ReqwestError")]
+    ReqwestError(reqwest::Error),
+
+    #[error("DecodeError")]
+    Base64DecodeError(base64::DecodeError),
+
+    #[error("SerdeJsonError")]
+    SerdeJsonError(serde_json::Error),
+}
+
+impl From<std::io::Error> for Error {
+    fn from(value: std::io::Error) -> Self {
+        Self::IoError(value)
+    }
 }

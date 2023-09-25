@@ -1,77 +1,100 @@
-use pretend::{pretend, resolver::UrlResolver, JsonResult, Pretend, Url};
-use pretend_reqwest::Client as HttpClient;
-use serde::{Deserialize, Serialize};
-
 use crate::{
-    error::Error,
+    client::Client,
     types::{BlockInfo, NetworkInfo},
 };
+use pretend::{
+    interceptor::NoopRequestInterceptor, pretend, resolver::UrlResolver, JsonResult, Pretend, Url,
+};
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
+
 #[derive(Serialize, Deserialize, Debug)]
 struct HeightInfo {
     height: u64,
 }
+
+#[derive(Debug, Error, Deserialize)]
+
+pub enum ResponseError {
+    #[error("Internal error")]
+    InternalError(String),
+
+    #[error("Unknown error")]
+    UnknownError(String),
+}
+
 #[pretend]
 trait NetworkInfoFetch {
     #[request(method = "GET", path = "/info")]
-    async fn network_info(&self) -> pretend::Result<JsonResult<NetworkInfo, Error>>;
+    async fn network_info(&self) -> pretend::Result<JsonResult<NetworkInfo, ResponseError>>;
 
     #[request(method = "GET", path = "/peers")]
-    async fn peer_info(&self) -> pretend::Result<JsonResult<Vec<String>, Error>>;
+    async fn peer_info(&self) -> pretend::Result<JsonResult<Vec<String>, ResponseError>>;
 
     #[request(method = "GET", path = "/block/hash/{id}")]
-    async fn block_by_hash(&self, id: &str) -> pretend::Result<JsonResult<BlockInfo, Error>>;
+    async fn block_by_hash(
+        &self,
+        id: &str,
+    ) -> pretend::Result<JsonResult<BlockInfo, ResponseError>>;
 
     #[request(method = "GET", path = "/block/height/{height}")]
-    async fn block_by_height(&self, height: u64) -> pretend::Result<JsonResult<BlockInfo, Error>>;
+    async fn block_by_height(
+        &self,
+        height: u64,
+    ) -> pretend::Result<JsonResult<BlockInfo, ResponseError>>;
 }
 
-pub struct NetworkInfoClient(Pretend<HttpClient, UrlResolver>);
+pub struct NetworkInfoClient(Pretend<Client, UrlResolver, NoopRequestInterceptor>);
 
 impl NetworkInfoClient {
     pub fn new(url: Url) -> Self {
-        let client = HttpClient::default();
+        let client = Client::default();
         let pretend = Pretend::for_client(client).with_url(url);
         Self(pretend)
     }
 
-    pub async fn network_info(&self) -> Result<NetworkInfo, Error> {
+    pub async fn network_info(&self) -> Result<NetworkInfo, ResponseError> {
         let response = self
             .0
             .network_info()
             .await
-            .expect("Error getting network info");
+            .map_err(|err| ResponseError::InternalError(err.to_string()))?;
         match response {
             JsonResult::Ok(n) => Ok(n),
             JsonResult::Err(err) => Err(err),
         }
     }
 
-    pub async fn peer_info(&self) -> Result<Vec<String>, Error> {
-        let response = self.0.peer_info().await.expect("Error getting peer info");
+    pub async fn peer_info(&self) -> Result<Vec<String>, ResponseError> {
+        let response = self
+            .0
+            .peer_info()
+            .await
+            .map_err(|err| ResponseError::InternalError(err.to_string()))?;
         match response {
             JsonResult::Ok(n) => Ok(n),
             JsonResult::Err(err) => Err(err),
         }
     }
 
-    pub async fn block_by_hash(&self, id: &str) -> Result<BlockInfo, Error> {
+    pub async fn block_by_hash(&self, id: &str) -> Result<BlockInfo, ResponseError> {
         let response = self
             .0
             .block_by_hash(id)
             .await
-            .expect("Error getting block info");
+            .map_err(|err| ResponseError::InternalError(err.to_string()))?;
         match response {
             JsonResult::Ok(n) => Ok(n),
             JsonResult::Err(err) => Err(err),
         }
     }
 
-    pub async fn block_by_height(&self, id: &str) -> Result<BlockInfo, Error> {
+    pub async fn block_by_height(&self, id: &str) -> Result<BlockInfo, ResponseError> {
         let response = self
             .0
             .block_by_hash(id)
             .await
-            .expect("Error getting block info");
+            .map_err(|err| ResponseError::InternalError(err.to_string()))?;
         match response {
             JsonResult::Ok(n) => Ok(n),
             JsonResult::Err(err) => Err(err),
@@ -83,7 +106,7 @@ impl NetworkInfoClient {
 mod tests {
     use std::str::FromStr;
 
-    use crate::{crypto::base64::Base64, network::NetworkInfoClient, ARWEAVE_BASE_URL};
+    use crate::{consts::ARWEAVE_BASE_URL, crypto::base64::Base64, network::NetworkInfoClient};
     use pretend::Url;
     use tokio_test::block_on;
 

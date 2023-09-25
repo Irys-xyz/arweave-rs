@@ -7,7 +7,11 @@ use rsa::{pkcs8::DecodePublicKey, PaddingScheme, PublicKey, RsaPublicKey};
 use sha2::Digest;
 
 use crate::{
-    crypto::{base64::Base64, hash::ToItems, Provider},
+    crypto::{
+        base64::Base64,
+        hash::{self, ToItems},
+        verify, Provider,
+    },
     error::Error,
     transaction::Tx,
 };
@@ -16,25 +20,13 @@ pub struct ArweaveSigner {
     crypto: Box<Provider>,
 }
 
-impl Default for ArweaveSigner {
-    fn default() -> Self {
-        Self {
-            crypto: Box::new(Provider::default()),
-        }
-    }
-}
-
 impl ArweaveSigner {
     pub fn verify(pub_key: &[u8], message: &[u8], signature: &[u8]) -> Result<(), Error> {
-        let crypto = Provider::default();
-        match crypto.verify(pub_key, message, signature) {
-            true => Ok(()),
-            false => Err(Error::InvalidSignature),
-        }
+        verify::verify(pub_key, message, signature)
     }
 
     pub fn from_keypair_path(keypair_path: PathBuf) -> Result<ArweaveSigner, Error> {
-        let crypto = Provider::from_keypair_path(keypair_path);
+        let crypto = Provider::from_keypair_path(keypair_path)?;
         let signer = ArweaveSigner {
             crypto: Box::new(crypto),
         };
@@ -42,18 +34,16 @@ impl ArweaveSigner {
     }
 
     pub fn sign_transaction(&self, mut transaction: Tx) -> Result<Tx, Error> {
-        let deep_hash_item = transaction
-            .to_deep_hash_item()
-            .expect("Could not convert transaction into deep hash item");
+        let deep_hash_item = transaction.to_deep_hash_item()?;
         let signature_data = self.crypto.deep_hash(deep_hash_item);
-        let signature = self.crypto.sign(&signature_data);
+        let signature = self.crypto.sign(&signature_data)?;
         let id = self.crypto.hash_sha256(&signature.0);
         transaction.signature = signature;
         transaction.id = Base64(id.to_vec());
         Ok(transaction)
     }
 
-    pub fn sign(&self, message: &[u8]) -> Base64 {
+    pub fn sign(&self, message: &[u8]) -> Result<Base64, Error> {
         self.crypto.sign(message)
     }
 
@@ -62,11 +52,8 @@ impl ArweaveSigner {
             return Err(Error::UnsignedTransaction);
         }
 
-        let crypto = Provider::default();
-        let deep_hash_item = transaction
-            .to_deep_hash_item()
-            .expect("Could not convert transaction into deep hash item");
-        let message = crypto.deep_hash(deep_hash_item);
+        let deep_hash_item = transaction.to_deep_hash_item()?;
+        let message = hash::deep_hash(deep_hash_item);
         let signature = &transaction.signature;
 
         let jwt_str = format!(
@@ -77,7 +64,7 @@ impl ArweaveSigner {
 
         let pub_key = RsaPublicKey::from_public_key_der(jwk.key.to_der().as_slice()).unwrap();
         let mut hasher = sha2::Sha256::new();
-        hasher.update(&message);
+        hasher.update(message);
         let hashed = &hasher.finalize();
 
         let rng = thread_rng();
@@ -111,9 +98,19 @@ impl ArweaveSigner {
 
 #[cfg(test)]
 mod tests {
+    use std::{path::PathBuf, str::FromStr};
+
     use crate::error::Error;
 
     use super::{ArweaveSigner, Base64};
+
+    impl Default for ArweaveSigner {
+        fn default() -> Self {
+            Self {
+                crypto: Default::default(),
+            }
+        }
+    }
 
     #[test]
     fn test_sign_verify() -> Result<(), Error> {
@@ -125,8 +122,9 @@ mod tests {
             ]
             .to_vec(),
         );
-        let signer = ArweaveSigner::default();
-        let signature = signer.sign(&message.0);
+        let path = PathBuf::from_str("res/test_wallet.json").unwrap();
+        let signer = ArweaveSigner::from_keypair_path(path)?;
+        let signature = signer.sign(&message.0)?;
         let pubk = signer.get_public_key();
         ArweaveSigner::verify(&pubk.0, &message.0, &signature.0)
     }

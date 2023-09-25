@@ -40,10 +40,7 @@ impl TxClient {
 
         let mut retries = 0;
         let mut status = reqwest::StatusCode::NOT_FOUND;
-        let url = self
-            .base_url
-            .join("tx")
-            .expect("Could not join base_url with /tx");
+        let url = self.base_url.join("tx").map_err(Error::UrlParseError)?;
 
         dbg!(json!(signed_transaction));
         while (retries < CHUNKS_RETRIES) & (status != reqwest::StatusCode::OK) {
@@ -55,7 +52,7 @@ impl TxClient {
                 .header(&CONTENT_TYPE, "application/json")
                 .send()
                 .await
-                .expect("Could not post transaction");
+                .map_err(Error::ReqwestError)?;
             status = res.status();
             dbg!(status);
             if status == reqwest::StatusCode::OK {
@@ -68,32 +65,32 @@ impl TxClient {
         Err(Error::StatusCodeNotOk)
     }
 
-    pub async fn get_last_tx(&self) -> Base64 {
+    pub async fn get_last_tx(&self) -> Result<Base64, Error> {
         let resp = self
             .client
             .get(
                 self.base_url
                     .join("tx_anchor")
-                    .expect("Could not join base_url with /tx_anchor"),
+                    .map_err(Error::UrlParseError)?,
             )
             .send()
             .await
-            .expect("Could not get last tx");
+            .map_err(Error::ReqwestError)?;
         let last_tx_str = resp.text().await.unwrap();
-        Base64::from_str(&last_tx_str).unwrap()
+        Base64::from_str(&last_tx_str).map_err(Error::Base64DecodeError)
     }
 
     pub async fn get_fee(&self, target: Base64, data: Vec<u8>) -> Result<u64, Error> {
         let url = self
             .base_url
             .join(&format!("price/{}/{}", data.len(), target))
-            .expect("Could not join base_url with /price/{}/{}");
+            .map_err(Error::UrlParseError)?;
         let winstons_per_bytes = reqwest::get(url)
             .await
             .map_err(|e| Error::GetPriceError(e.to_string()))?
             .json::<u64>()
             .await
-            .expect("Could not get base fee");
+            .map_err(Error::ReqwestError)?;
 
         Ok(winstons_per_bytes)
     }
@@ -104,18 +101,15 @@ impl TxClient {
             .get(
                 self.base_url
                     .join(&format!("tx/{}", id))
-                    .expect("Could not join base_url with /tx"),
+                    .map_err(Error::UrlParseError)?,
             )
             .send()
             .await
-            .expect("Could not get tx");
+            .map_err(Error::ReqwestError)?;
 
         if res.status() == StatusCode::OK {
-            let text = res
-                .text()
-                .await
-                .expect("Could not parse response to string");
-            let tx = Tx::from_str(&text).expect("Could not create Tx from string");
+            let text = res.text().await.map_err(Error::ReqwestError)?;
+            let tx = Tx::from_str(&text)?;
             return Ok((StatusCode::OK, Some(tx)));
         } else if res.status() == StatusCode::ACCEPTED {
             //Tx is pending
@@ -131,18 +125,17 @@ impl TxClient {
             .get(
                 self.base_url
                     .join(&format!("tx/{}/status", id))
-                    .expect("Could not join base_url with /tx/{}/status"),
+                    .map_err(Error::UrlParseError)?,
             )
             .send()
             .await
-            .expect("Could not get tx status");
+            .map_err(Error::ReqwestError)?;
 
         if res.status() == StatusCode::OK {
             let status = res
                 .json::<TxStatus>()
                 .await
-                .map_err(|err| Error::TransactionInfoError(err.to_string()))
-                .expect("Could not parse tx status");
+                .map_err(|err| Error::TransactionInfoError(err.to_string()))?;
 
             Ok((StatusCode::OK, Some(status)))
         } else if res.status() == StatusCode::ACCEPTED {

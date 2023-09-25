@@ -130,6 +130,7 @@ impl Tx {
 }
 
 impl Tx {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         crypto: &Provider,
         target: Base64,
