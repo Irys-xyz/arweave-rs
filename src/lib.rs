@@ -1,3 +1,4 @@
+use jsonwebkey as jwk;
 use std::{fs, path::PathBuf, str::FromStr};
 
 use consts::MAX_TX_DATA;
@@ -52,6 +53,7 @@ pub struct Arweave {
 pub struct ArweaveBuilder {
     base_url: Option<url::Url>,
     keypair_path: Option<PathBuf>,
+    jwk: Option<jwk::JsonWebKey>,
 }
 
 impl ArweaveBuilder {
@@ -69,6 +71,11 @@ impl ArweaveBuilder {
         self
     }
 
+    pub fn jwk(mut self, jwk: jwk::JsonWebKey) -> ArweaveBuilder {
+        self.jwk = Some(jwk);
+        self
+    }
+
     pub fn build(self) -> Result<Arweave, Error> {
         let base_url = self
             .base_url
@@ -76,7 +83,10 @@ impl ArweaveBuilder {
 
         let signer = match self.keypair_path {
             Some(p) => Some(ArweaveSigner::from_keypair_path(p)?),
-            None => None,
+            None => match self.jwk {
+                Some(jwk) => Some(ArweaveSigner::from_jwk(jwk)),
+                None => todo!(),
+            },
         };
 
         Ok(Arweave {
