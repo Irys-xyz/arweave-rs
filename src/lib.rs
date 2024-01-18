@@ -162,11 +162,15 @@ impl Arweave {
         verify(pub_key, message, signature)
     }
 
-    pub async fn post_transaction(&self, signed_transaction: &Tx) -> Result<(String, u64), Error> {
-        self.tx_client
-            .post_transaction(signed_transaction)
-            .await
-            .map(|(id, reward)| (id.to_string(), reward))
+    pub async fn post_transaction(&self, signed_transaction: Tx) -> Result<(String, u64), Error> {
+        if signed_transaction.data.0.len() > MAX_TX_DATA as usize {
+            self.post_transaction_chunks(signed_transaction, 100).await
+        } else {
+            self.tx_client
+                .post_transaction(&signed_transaction)
+                .await
+                .map(|(id, reward)| (id.to_string(), reward))
+        }
     }
 
     async fn get_last_tx(&self) -> Result<Base64, Error> {
@@ -258,14 +262,7 @@ impl Arweave {
             )
             .await?;
         let signed_transaction = self.sign_transaction(transaction)?;
-        let (id, reward) = if signed_transaction.data.0.len() > MAX_TX_DATA as usize {
-            self.post_transaction_chunks(signed_transaction, 100)
-                .await?
-        } else {
-            self.post_transaction(&signed_transaction).await?
-        };
-
-        Ok((id, reward))
+        self.post_transaction(signed_transaction).await
     }
 
     async fn post_transaction_chunks(
@@ -278,7 +275,11 @@ impl Arweave {
         }
 
         let transaction_with_no_data = signed_transaction.clone_with_no_data()?;
-        let (id, reward) = self.post_transaction(&transaction_with_no_data).await?;
+        let (id, reward) = self
+            .tx_client
+            .post_transaction(&transaction_with_no_data)
+            .await
+            .map(|(id, reward)| (id.to_string(), reward))?;
 
         let results: Vec<Result<usize, Error>> =
             Self::upload_transaction_chunks_stream(self, signed_transaction, chunks_buffer)
