@@ -216,13 +216,42 @@ impl Arweave {
                 Tag::from_utf8_strs("Content-Type", content_type.as_ref())?;
             additional_tags.push(content_tag);
         }
-
         let data = fs::read(file_path)?;
+
+        self.post_bytes(data, auto_content_tag, additional_tags, fee)
+            .await
+    }
+
+    pub async fn upload_bytes<T: AsRef<[u8]>>(
+        &self,
+        buffer: T,
+        mime_type: Option<&str>,
+        additional_tags: Vec<Tag<Base64>>,
+        fee: u64,
+    ) -> Result<(String, u64), Error> {
+        let mut auto_content_tag = true;
+        let mut additional_tags = additional_tags;
+        if let Some(mime_type) = mime_type {
+            let content_tag: Tag<Base64> = Tag::from_utf8_strs("Content-Type", mime_type)?;
+            additional_tags.push(content_tag);
+            auto_content_tag = false;
+        };
+        self.post_bytes(buffer, auto_content_tag, additional_tags, fee)
+            .await
+    }
+
+    async fn post_bytes<T: AsRef<[u8]>>(
+        &self,
+        buffer: T,
+        auto_content_tag: bool,
+        additional_tags: Vec<Tag<Base64>>,
+        fee: u64,
+    ) -> Result<(String, u64), Error> {
         let transaction = self
             .create_transaction(
                 Base64(b"".to_vec()),
                 additional_tags,
-                data,
+                buffer.as_ref().into(),
                 0,
                 fee,
                 auto_content_tag,
